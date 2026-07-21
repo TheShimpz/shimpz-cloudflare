@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from aiohttp.test_utils import TestClient, TestServer
+
 from assistant import PrivateEnvelopeError, validate_power_envelope, validate_power_input
 from assistant.cloudflare_api import CloudflareApiError, CloudflareReauthorizationRequiredError
 from assistant.main import create_app
