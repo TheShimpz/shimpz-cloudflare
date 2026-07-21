@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "records": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+          "type": {"enum": ["A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI"]},
+          "name": {"type": "string", "minLength": 1, "maxLength": 255},
+          "content": {"type": "string", "minLength": 1, "maxLength": 65535},
+          "ttl": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+          "proxied": {"type": "boolean"},
+          "proxiable": {"type": "boolean"}
+        },
+        "required": ["id", "type", "name", "content", "ttl", "proxied", "proxiable"],
+        "additionalProperties": false
+      }
+    },
+    "pagination": {
+      "type": "object",
+      "properties": {
+        "page": {"type": "integer", "minimum": 1},
+        "per_page": {"type": "integer", "minimum": 1, "maximum": 100},
+        "count": {"type": "integer", "minimum": 0, "maximum": 100},
+        "total_count": {"type": "integer", "minimum": 0},
+        "total_pages": {"type": "integer", "minimum": 0}
+      },
+      "required": ["page", "per_page", "count", "total_count", "total_pages"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["records", "pagination"],
+  "additionalProperties": false
+}
