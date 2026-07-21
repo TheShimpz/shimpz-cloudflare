@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 - 2026-07-21
+
+- Synchronize frozen release metadata and enforce the canonical Ruff contract.
+
 ## 0.1.1 - 2026-07-21
 
 - Align the immutable Genesis and Help package root with the controller's standard Assistant contract.
