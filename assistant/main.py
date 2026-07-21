@@ -66,7 +66,7 @@ def create_http_session() -> aiohttp.ClientSession:
         connector=connector,
         timeout=HTTP_TIMEOUT,
         trust_env=True,
-        headers={"User-Agent": "shimpz-cloudflare/0.1.0"},
+        headers={"User-Agent": "shimpz-cloudflare/0.1.1"},
     )
 
 
@@ -162,4 +162,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
