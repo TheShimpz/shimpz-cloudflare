@@ -3,13 +3,11 @@ from __future__ import annotations
 import unittest
 
 from aiohttp.test_utils import TestClient, TestServer
-
 from assistant import PrivateEnvelopeError, validate_power_envelope, validate_power_input
 from assistant.cloudflare_api import CloudflareApiError, CloudflareReauthorizationRequiredError
 from assistant.main import create_app
 
-
-TOKEN = "opaque-access-token"
+TEST_ACCESS_VALUE = "opaque-access-token"
 ZONE_ID = "a" * 32
 
 
@@ -17,7 +15,7 @@ def _envelope(power_input: dict[str, object]) -> dict[str, object]:
     return {
         "input": power_input,
         "secrets": {},
-        "accounts": {"cloudflare": {"type": "oauth2-bearer", "access_token": TOKEN}},
+        "accounts": {"cloudflare": {"type": "oauth2-bearer", "access_token": TEST_ACCESS_VALUE}},
     }
 
 
@@ -30,19 +28,25 @@ class _CloudflareClient:
         if self.failure:
             raise self.failure
         self.calls.append(("zones", page, per_page, token))
-        return {"zones": [], "pagination": {"page": page, "per_page": per_page, "count": 0, "total_count": 0, "total_pages": 0}}
+        return {
+            "zones": [],
+            "pagination": {"page": page, "per_page": per_page, "count": 0, "total_count": 0, "total_pages": 0},
+        }
 
     async def list_dns_records(self, zone_id: str, page: int, per_page: int, token: str):
         if self.failure:
             raise self.failure
         self.calls.append(("dns", zone_id, page, per_page, token))
-        return {"records": [], "pagination": {"page": page, "per_page": per_page, "count": 0, "total_count": 0, "total_pages": 0}}
+        return {
+            "records": [],
+            "pagination": {"page": page, "per_page": per_page, "count": 0, "total_count": 0, "total_pages": 0},
+        }
 
 
 class PrivateContractTests(unittest.TestCase):
     def test_requires_exact_cloudflare_account_envelope_and_bounded_inputs(self) -> None:
         envelope = validate_power_envelope(_envelope({"page": 1, "per_page": 25}), "list-zones")
-        self.assertEqual(envelope.access_token, TOKEN)
+        self.assertEqual(envelope.access_token, TEST_ACCESS_VALUE)
         validate_power_input("list-zones", envelope.input)
         validate_power_input("list-dns-records", {"zone_id": ZONE_ID, "page": 1, "per_page": 100})
 
@@ -94,7 +98,10 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(dns.status, 200)
         self.assertEqual(
             self.cloudflare.calls,
-            [("zones", 1, 25, TOKEN), ("dns", ZONE_ID, 1, 50, TOKEN)],
+            [
+                ("zones", 1, 25, TEST_ACCESS_VALUE),
+                ("dns", ZONE_ID, 1, 50, TEST_ACCESS_VALUE),
+            ],
         )
 
     async def test_invalid_private_input_and_provider_failures_are_stable(self) -> None:

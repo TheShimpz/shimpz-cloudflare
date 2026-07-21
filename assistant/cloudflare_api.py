@@ -17,9 +17,27 @@ _HEX_ID = re.compile(r"^[0-9a-f]{32}$")
 _STATUS = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 _DNS_TYPES = frozenset(
     {
-        "A", "AAAA", "CAA", "CERT", "CNAME", "DNSKEY", "DS", "HTTPS", "LOC", "MX",
-        "NAPTR", "NS", "OPENPGPKEY", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA",
-        "TXT", "URI",
+        "A",
+        "AAAA",
+        "CAA",
+        "CERT",
+        "CNAME",
+        "DNSKEY",
+        "DS",
+        "HTTPS",
+        "LOC",
+        "MX",
+        "NAPTR",
+        "NS",
+        "OPENPGPKEY",
+        "PTR",
+        "SMIMEA",
+        "SRV",
+        "SSHFP",
+        "SVCB",
+        "TLSA",
+        "TXT",
+        "URI",
     }
 )
 _ZONE_TYPES = frozenset({"full", "partial", "secondary", "internal"})
@@ -190,4 +208,3 @@ def _boolean(value: object) -> bool:
     if type(value) is not bool:
         raise CloudflareApiError("Cloudflare boolean is invalid")
     return value
-

@@ -11,11 +11,10 @@ from assistant.cloudflare_api import (
     CloudflareReauthorizationRequiredError,
 )
 
-
 ZONE_ID = "a" * 32
 ACCOUNT_ID = "b" * 32
 RECORD_ID = "c" * 32
-TOKEN = "opaque-access-token"
+TEST_ACCESS_VALUE = "opaque-access-token"
 
 
 class _Content:
@@ -103,8 +102,8 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         )
         client = CloudflareApiClient(session)  # type: ignore[arg-type]
 
-        zones = await client.list_zones(1, 25, TOKEN)
-        records = await client.list_dns_records(ZONE_ID, 1, 25, TOKEN)
+        zones = await client.list_zones(1, 25, TEST_ACCESS_VALUE)
+        records = await client.list_dns_records(ZONE_ID, 1, 25, TEST_ACCESS_VALUE)
 
         self.assertEqual(zones["zones"][0]["name"], "shimpz.com")
         self.assertNotIn("ignored", zones["zones"][0])
@@ -118,7 +117,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
         for _url, kwargs in session.requests:
-            self.assertEqual(kwargs["headers"]["Authorization"], f"Bearer {TOKEN}")
+            self.assertEqual(kwargs["headers"]["Authorization"], f"Bearer {TEST_ACCESS_VALUE}")
             self.assertIs(kwargs["allow_redirects"], False)
             self.assertEqual(kwargs["params"]["order"], "name")
 
@@ -131,8 +130,8 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(status=response.status):
                 client = CloudflareApiClient(_Session([response]))  # type: ignore[arg-type]
                 with self.assertRaises(error) as caught:
-                    await client.list_zones(1, 25, TOKEN)
-                self.assertNotIn(TOKEN, str(caught.exception))
+                    await client.list_zones(1, 25, TEST_ACCESS_VALUE)
+                self.assertNotIn(TEST_ACCESS_VALUE, str(caught.exception))
 
     async def test_malformed_duplicate_oversized_and_unbounded_results_fail_closed(self) -> None:
         bad = (
@@ -140,15 +139,19 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             _Response(b"[]"),
             _Response(b"x" * (MAX_RESPONSE_BYTES + 1)),
             _Response(_page([{}])),
-            _Response({**_page([]), "result_info": {"page": 2, "per_page": 25, "count": 0, "total_count": 0, "total_pages": 0}}),
+            _Response(
+                {
+                    **_page([]),
+                    "result_info": {"page": 2, "per_page": 25, "count": 0, "total_count": 0, "total_pages": 0},
+                }
+            ),
         )
         for index, response in enumerate(bad):
             with self.subTest(index=index):
                 client = CloudflareApiClient(_Session([response]))  # type: ignore[arg-type]
                 with self.assertRaises(CloudflareApiError):
-                    await client.list_zones(1, 25, TOKEN)
+                    await client.list_zones(1, 25, TEST_ACCESS_VALUE)
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -17,11 +17,12 @@ UPSTREAM_TIMEOUT_SECONDS = 8
 ROUTES = {
     ("GET", "/healthz"): ("GET", "/health", None),
     ("GET", "/v1/help"): ("GET", "/v1/help", None),
-    **{("GET", f"/v1/help/{locale}"): ("GET", f"/v1/help/{locale}", None) for locale in ("en", "pt", "es", "zh", "fr", "de", "ja", "ar")},
+    **{
+        ("GET", f"/v1/help/{locale}"): ("GET", f"/v1/help/{locale}", None)
+        for locale in ("en", "pt", "es", "zh", "fr", "de", "ja", "ar")
+    },
     ("POST", "/v1/powers/list-zones"): ("POST", "/v1/powers/list-zones", "list-zones"),
-    ("POST", "/v1/powers/list-dns-records"): (
-        "POST", "/v1/powers/list-dns-records", "list-dns-records"
-    ),
+    ("POST", "/v1/powers/list-dns-records"): ("POST", "/v1/powers/list-dns-records", "list-dns-records"),
 }
 
 
@@ -104,4 +105,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

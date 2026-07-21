@@ -118,7 +118,7 @@ async def _invoke_power(request: web.Request, power_id: str) -> web.Response:
     try:
         envelope = await _private_envelope(request, power_id)
         validate_power_input(power_id, envelope.input)
-    except (ValueError, PrivateEnvelopeError):
+    except ValueError, PrivateEnvelopeError:
         return _error(400, "invalid_input")
     try:
         if power_id == "list-zones":
