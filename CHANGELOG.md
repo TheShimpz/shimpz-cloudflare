@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5 - 2026-07-21
+
+- Reassemble bounded chunked Cloudflare responses before strict JSON validation.
+
 ## 0.1.4 - 2026-07-21
 
 - Request uncompressed Cloudflare API responses so the strict response contract can validate zone and DNS results.
