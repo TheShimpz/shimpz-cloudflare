@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 - 2026-07-21
+
+- Request uncompressed Cloudflare API responses so the strict response contract can validate zone and DNS results.
+
 ## 0.1.3 - 2026-07-21
 
 - Make the Python 3.14 Ruff format and security contract self-contained for isolated builds.

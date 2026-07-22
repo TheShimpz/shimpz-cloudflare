@@ -1,6 +1,6 @@
 [project]
 name = "shimpz-cloudflare"
-version = "0.1.3"
+version = "0.1.4"
 description = "Read-only Cloudflare zones and DNS Assistant for Shimpz"
 requires-python = ">=3.14"
 dependencies = [
