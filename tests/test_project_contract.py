@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class ProjectContractTests(unittest.TestCase):
+class StaticAssistantProjectContractTests(unittest.TestCase):
     def test_manifest_declares_only_read_only_cloudflare_contract(self) -> None:
         manifest = tomllib.loads((ROOT / "shimpz.assistant.toml").read_text(encoding="utf-8"))
 
