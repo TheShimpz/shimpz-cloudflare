@@ -107,7 +107,7 @@ class CloudflareApiClient:
                     not raw_length.isascii() or not raw_length.isdigit() or int(raw_length) > MAX_RESPONSE_BYTES
                 ):
                     raise CloudflareApiError("Cloudflare response size is invalid")
-                raw = await response.content.read(MAX_RESPONSE_BYTES + 1)
+                raw = await _read_bounded(response.content)
         except CloudflareApiError:
             raise
         except Exception as exc:
@@ -121,6 +121,17 @@ class CloudflareApiClient:
         if not isinstance(payload, dict) or payload.get("success") is not True:
             raise CloudflareApiError("Cloudflare response is invalid")
         return payload
+
+
+async def _read_bounded(content: Any) -> bytes:
+    raw = bytearray()
+    while True:
+        chunk = await content.read(min(64 * 1024, (MAX_RESPONSE_BYTES + 1) - len(raw)))
+        if not chunk:
+            return bytes(raw)
+        raw.extend(chunk)
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise CloudflareApiError("Cloudflare response size is invalid")
 
 
 def _result(payload: Mapping[str, Any], maximum: int) -> list[Mapping[str, Any]]:

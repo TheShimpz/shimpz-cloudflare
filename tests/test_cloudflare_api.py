@@ -18,15 +18,27 @@ TEST_ACCESS_VALUE = "opaque-access-token"
 
 
 class _Content:
-    def __init__(self, raw: bytes) -> None:
+    def __init__(self, raw: bytes, chunk_size: int | None = None) -> None:
         self.raw = raw
+        self.chunk_size = chunk_size
+        self.offset = 0
 
     async def read(self, size: int) -> bytes:
-        return self.raw[:size]
+        limit = size if self.chunk_size is None else min(size, self.chunk_size)
+        chunk = self.raw[self.offset : self.offset + limit]
+        self.offset += len(chunk)
+        return chunk
 
 
 class _Response:
-    def __init__(self, payload: object, *, status: int = 200, headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        payload: object,
+        *,
+        status: int = 200,
+        headers: dict[str, str] | None = None,
+        chunk_size: int | None = None,
+    ) -> None:
         self.raw = payload if isinstance(payload, bytes) else json.dumps(payload, separators=(",", ":")).encode()
         self.status = status
         self.headers = {
@@ -34,7 +46,7 @@ class _Response:
             "Content-Length": str(len(self.raw)),
             **(headers or {}),
         }
-        self.content = _Content(self.raw)
+        self.content = _Content(self.raw, chunk_size)
 
     async def __aenter__(self):
         return self
@@ -133,6 +145,16 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(error) as caught:
                     await client.list_zones(1, 25, TEST_ACCESS_VALUE)
                 self.assertNotIn(TEST_ACCESS_VALUE, str(caught.exception))
+
+    async def test_reassembles_a_bounded_chunked_provider_response(self) -> None:
+        response = _Response(_page([]), chunk_size=7)
+        response.headers.pop("Content-Length")
+        client = CloudflareApiClient(_Session([response]))  # type: ignore[arg-type]
+
+        result = await client.list_zones(1, 25, TEST_ACCESS_VALUE)
+
+        self.assertEqual(result["zones"], [])
+        self.assertEqual(result["pagination"]["count"], 0)
 
     async def test_malformed_duplicate_oversized_and_unbounded_results_fail_closed(self) -> None:
         bad = (
