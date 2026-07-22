@@ -50,7 +50,7 @@ class ProjectContractTests(unittest.TestCase):
             self.assertIs(schema["additionalProperties"], False, path.name)
             self.assertLess(path.stat().st_size, 32 * 1024)
 
-    def test_admission_documents_and_image_are_bounded_and_complete(self) -> None:
+    def test_static_admission_documents_and_image_are_bounded_and_complete(self) -> None:
         for filename, maximum in (("GENESIS.md", 128 * 1024), ("CHANGELOG.md", 64 * 1024)):
             raw = (ROOT / filename).read_bytes()
             self.assertGreater(len(raw), 0)
