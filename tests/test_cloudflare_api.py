@@ -118,6 +118,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         )
         for _url, kwargs in session.requests:
             self.assertEqual(kwargs["headers"]["Authorization"], f"Bearer {TEST_ACCESS_VALUE}")
+            self.assertEqual(kwargs["headers"]["Accept-Encoding"], "identity")
             self.assertIs(kwargs["allow_redirects"], False)
             self.assertEqual(kwargs["params"]["order"], "name")
 

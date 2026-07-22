@@ -82,7 +82,11 @@ class CloudflareApiClient:
     async def _get(self, path: str, access_token: str, params: Mapping[str, str]) -> dict[str, Any]:
         if not path.startswith("/client/v4/") or "?" in path or "#" in path:
             raise CloudflareApiError("undeclared Cloudflare endpoint")
-        headers = {"Accept": "application/json", "Authorization": f"Bearer {access_token}"}
+        headers = {
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+            "Authorization": f"Bearer {access_token}",
+        }
         try:
             async with self._session.get(
                 f"{CLOUDFLARE_API_ORIGIN}{path}",
