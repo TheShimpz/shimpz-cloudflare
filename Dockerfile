@@ -2,7 +2,7 @@
 FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1
 
 WORKDIR /opt/shimpz-assistant
-RUN install -d -o 10001 -g 10001 -m 0555 /opt/shimpz-assistant/assistant /opt/shimpz-assistant/help
+RUN install -d -o 10001 -g 10001 -m 0555 /opt/shimpz /opt/shimpz-assistant/assistant /opt/shimpz-assistant/help
 
 COPY --chmod=0444 requirements.lock ./requirements.lock
 RUN PIP_ROOT_USER_ACTION=ignore python3 -m pip install --disable-pip-version-check --no-cache-dir \
@@ -10,6 +10,7 @@ RUN PIP_ROOT_USER_ACTION=ignore python3 -m pip install --disable-pip-version-che
     && rm -rf /root/.cache
 
 COPY --chown=10001:10001 --chmod=0444 GENESIS.md CHANGELOG.md shimpz.toml ./
+COPY --chown=10001:10001 --chmod=0444 shimpz.contract.json /opt/shimpz/shimpz.contract.json
 COPY --chown=10001:10001 --chmod=0444 help/HELP-*.md ./help/
 COPY --chown=10001:10001 --chmod=0444 assistant/__init__.py assistant/main.py assistant/cloudflare_api.py ./assistant/
 COPY --chown=10001:10001 --chmod=0555 assistant/rpc.py /usr/local/bin/shimpz-assistant-rpc

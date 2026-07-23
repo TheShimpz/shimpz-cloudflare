@@ -32,6 +32,12 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertNotIn("secret", serialized.lower())
 
     def test_schemas_are_closed_and_bounded(self) -> None:
+        machine_contract = json.loads((ROOT / "shimpz.contract.json").read_text(encoding="utf-8"))
+        self.assertEqual(machine_contract["version"], 1)
+        self.assertEqual(
+            {power["id"] for power in machine_contract["powers"]},
+            {"list-zones", "list-dns-records"},
+        )
         schema_paths = sorted((ROOT / "schemas").glob("*.schema.json"))
         self.assertEqual(
             {path.name for path in schema_paths},
