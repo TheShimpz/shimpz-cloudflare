@@ -10,10 +10,16 @@ The Assistant receives a short-lived access token only while one of these Powers
 receives the OAuth client secret or refresh token. Both Powers are read-only, require no approval,
 use fixed Cloudflare API paths, reject redirects, and limit response sizes and pagination.
 
+The authored surface is `shimpz.toml` plus `app.py`. The Shimpz Python SDK generates
+`shimpz.contract.json`, runs each Power in a fresh process, and provides the container health and
+Help RPCs. Genesis and localized Help remain immutable runtime documents.
+
 ## Local checks
+
+Run these commands from this repository's canonical `assistants/shimpz-cloudflare` checkout inside
+the Shimpz umbrella repository, where `../../packages/python/shimpz` supplies the pinned SDK source.
 
 ```console
 uv sync --frozen
 uv run python -m unittest discover -s tests -v
 ```
-

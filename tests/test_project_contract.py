@@ -33,7 +33,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertNotIn(".write", serialized)
         self.assertNotIn("secret", serialized.lower())
 
-    def test_schemas_are_closed_and_bounded(self) -> None:
+    def test_sdk_contract_is_generated_closed_and_bounded(self) -> None:
         raw_contract = (ROOT / "shimpz.contract.json").read_text(encoding="utf-8")
         machine_contract = json.loads(raw_contract)
         load_app(ROOT / "app.py")
@@ -43,21 +43,12 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             {power["id"] for power in machine_contract["powers"]},
             {"list-zones", "list-dns-records"},
         )
-        schema_paths = sorted((ROOT / "schemas").glob("*.schema.json"))
-        self.assertEqual(
-            {path.name for path in schema_paths},
-            {
-                "list-zones.input.schema.json",
-                "list-zones.output.schema.json",
-                "list-dns-records.input.schema.json",
-                "list-dns-records.output.schema.json",
-            },
-        )
-        for path in schema_paths:
-            schema = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(schema["type"], "object", path.name)
-            self.assertIs(schema["additionalProperties"], False, path.name)
-            self.assertLess(path.stat().st_size, 32 * 1024)
+        for power_contract in machine_contract["powers"]:
+            self.assertEqual(power_contract["input_schema"]["type"], "object")
+            self.assertIs(power_contract["input_schema"]["additionalProperties"], False)
+            self.assertEqual(power_contract["output_schema"]["type"], "object")
+            self.assertIs(power_contract["output_schema"]["additionalProperties"], False)
+        self.assertLess(len(raw_contract.encode()), 32 * 1024)
 
     def test_static_admission_documents_and_image_are_bounded_and_complete(self) -> None:
         for filename, maximum in (("GENESIS.md", 128 * 1024), ("CHANGELOG.md", 64 * 1024)):
@@ -69,7 +60,9 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("USER 10001:10001", dockerfile)
         self.assertIn('org.shimpz.assistant.id="shimpz-cloudflare"', dockerfile)
-        self.assertIn("assistant/cloudflare_api.py", dockerfile)
+        self.assertIn("shimpz-cloudflare/app.py", dockerfile)
+        self.assertIn('ENTRYPOINT ["shimpz-assistant"]', dockerfile)
+        self.assertNotIn("assistant/main.py", dockerfile)
         self.assertIn("--require-hashes", dockerfile)
 
 
