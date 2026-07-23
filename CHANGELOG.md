@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 - 2026-07-23
+
+- Generate the reviewed Power contract from source during the image build and keep the generated file read-only.
+- Remove unverifiable SDK provenance metadata from the Assistant package.
+
 ## 0.2.0 - 2026-07-23
 
 - Author both read-only Powers with `@power`, `field`, typed SDK output contracts, and `ctx.accounts`.

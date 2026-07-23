@@ -31,7 +31,7 @@ USER 10001:10001
 EXPOSE 8080
 
 LABEL org.opencontainers.image.source="https://github.com/TheShimpz/shimpz-cloudflare" \
-      org.opencontainers.image.version="0.2.0" \
+      org.opencontainers.image.version="0.2.1" \
       org.shimpz.assistant.id="shimpz-cloudflare" \
       org.shimpz.assistant.api="1"
 

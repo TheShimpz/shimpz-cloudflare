@@ -206,7 +206,7 @@ def create_http_session() -> aiohttp.ClientSession:
         connector=connector,
         timeout=HTTP_TIMEOUT,
         trust_env=True,
-        headers={"User-Agent": "shimpz-cloudflare/0.2.0"},
+        headers={"User-Agent": "shimpz-cloudflare/0.2.1"},
     )
 
 
