@@ -78,7 +78,7 @@ def invoke(
         decoded: Any = json.loads(output)
         if not isinstance(decoded, dict):
             raise RpcUpstreamError("Assistant response must be an object")
-        canonical = json.dumps(decoded, separators=(",", ":")).encode()
+        canonical = json.dumps({"result": decoded}, separators=(",", ":")).encode()
         if len(canonical) > MAX_RESPONSE_BYTES:
             raise RpcUpstreamError("Assistant response is outside the accepted size")
     except RpcUpstreamError:

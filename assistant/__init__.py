@@ -26,12 +26,12 @@ class PowerEnvelope:
 def validate_power_envelope(payload: object, power_id: str) -> PowerEnvelope:
     if power_id not in POWER_IDS:
         raise PrivateEnvelopeError("undeclared Power")
-    if not isinstance(payload, dict) or set(payload) != {"input", "secrets", "accounts"}:
+    if not isinstance(payload, dict) or set(payload) != {"input", "secrets", "accounts", "answers"}:
         raise PrivateEnvelopeError("invalid private envelope")
     power_input = payload["input"]
     secrets = payload["secrets"]
     accounts = payload["accounts"]
-    if not isinstance(power_input, dict) or secrets != {} or not isinstance(accounts, dict):
+    if not isinstance(power_input, dict) or secrets != {} or not isinstance(accounts, dict) or payload["answers"] != []:
         raise PrivateEnvelopeError("the declared Cloudflare Account is required")
     if set(accounts) != {"cloudflare"}:
         raise PrivateEnvelopeError("the declared Cloudflare Account is required")

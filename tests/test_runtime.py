@@ -17,6 +17,7 @@ def _envelope(power_input: dict[str, object]) -> dict[str, object]:
         "input": power_input,
         "secrets": {},
         "accounts": {"cloudflare": {"type": "oauth2-bearer", "access_token": TEST_ACCESS_VALUE}},
+        "answers": [],
     }
 
 
