@@ -17,8 +17,10 @@ RUN PIP_ROOT_USER_ACTION=ignore python3 -m pip install --disable-pip-version-che
 COPY --chown=10001:10001 --chmod=0444 assistants/shimpz-cloudflare/GENESIS.md \
     assistants/shimpz-cloudflare/CHANGELOG.md ./
 COPY --chown=10001:10001 --chmod=0444 assistants/shimpz-cloudflare/shimpz.toml \
-    assistants/shimpz-cloudflare/app.py assistants/shimpz-cloudflare/shimpz.contract.json /opt/shimpz/
+    assistants/shimpz-cloudflare/app.py /opt/shimpz/
 COPY --chown=10001:10001 --chmod=0444 assistants/shimpz-cloudflare/help/HELP-*.md /opt/shimpz/help/
+RUN shimpz-assistant-contract --app /opt/shimpz/app.py --output /opt/shimpz/shimpz.contract.json \
+    && chmod 0444 /opt/shimpz/shimpz.contract.json
 
 ENV HOST=0.0.0.0 \
     PORT=8080 \

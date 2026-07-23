@@ -61,6 +61,8 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertIn("USER 10001:10001", dockerfile)
         self.assertIn('org.shimpz.assistant.id="shimpz-cloudflare"', dockerfile)
         self.assertIn("shimpz-cloudflare/app.py", dockerfile)
+        self.assertIn("shimpz-assistant-contract --app /opt/shimpz/app.py", dockerfile)
+        self.assertNotIn("shimpz-cloudflare/shimpz.contract.json", dockerfile)
         self.assertIn('ENTRYPOINT ["shimpz-assistant"]', dockerfile)
         self.assertNotIn("assistant/main.py", dockerfile)
         self.assertIn("--require-hashes", dockerfile)
