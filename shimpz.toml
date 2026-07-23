@@ -18,4 +18,3 @@ accounts = ["cloudflare"]
 summary = "List a bounded page of DNS records from one Cloudflare zone."
 approval = "never"
 accounts = ["cloudflare"]
-

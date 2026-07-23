@@ -9,7 +9,7 @@ RUN PIP_ROOT_USER_ACTION=ignore python3 -m pip install --disable-pip-version-che
         --only-binary=:all: --require-hashes --requirement requirements.lock \
     && rm -rf /root/.cache
 
-COPY --chown=10001:10001 --chmod=0444 GENESIS.md CHANGELOG.md shimpz.assistant.toml ./
+COPY --chown=10001:10001 --chmod=0444 GENESIS.md CHANGELOG.md shimpz.toml ./
 COPY --chown=10001:10001 --chmod=0444 help/HELP-*.md ./help/
 COPY --chown=10001:10001 --chmod=0444 assistant/__init__.py assistant/main.py assistant/cloudflare_api.py ./assistant/
 COPY --chown=10001:10001 --chmod=0555 assistant/rpc.py /usr/local/bin/shimpz-assistant-rpc

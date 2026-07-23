@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class StaticAssistantProjectContractTests(unittest.TestCase):
     def test_manifest_declares_only_read_only_cloudflare_contract(self) -> None:
-        manifest = tomllib.loads((ROOT / "shimpz.assistant.toml").read_text(encoding="utf-8"))
+        manifest = tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))
 
         self.assertEqual(manifest["schema_version"], 2)
         self.assertEqual(manifest["name"], "Shimpz Cloudflare")
