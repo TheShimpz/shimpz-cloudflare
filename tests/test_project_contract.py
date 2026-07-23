@@ -5,6 +5,8 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from shimpz.contract import build_contract, canonical_json, load_app
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -32,7 +34,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertNotIn("secret", serialized.lower())
 
     def test_schemas_are_closed_and_bounded(self) -> None:
-        machine_contract = json.loads((ROOT / "shimpz.contract.json").read_text(encoding="utf-8"))
+        raw_contract = (ROOT / "shimpz.contract.json").read_text(encoding="utf-8")
+        machine_contract = json.loads(raw_contract)
+        load_app(ROOT / "app.py")
+        self.assertEqual(raw_contract, canonical_json(build_contract()))
         self.assertEqual(machine_contract["version"], 1)
         self.assertEqual(
             {power["id"] for power in machine_contract["powers"]},

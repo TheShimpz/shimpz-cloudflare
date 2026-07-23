@@ -23,3 +23,4 @@ ignore = ["S311", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S108", "S310"]
+"app.py" = ["B008"]
