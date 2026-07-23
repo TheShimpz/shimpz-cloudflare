@@ -12,7 +12,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
     def test_manifest_declares_only_read_only_cloudflare_contract(self) -> None:
         manifest = tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))
 
-        self.assertEqual(manifest["schema_version"], 2)
+        self.assertEqual(
+            set(manifest),
+            {"name", "summary", "creators", "github", "allowed_hosts", "accounts"},
+        )
         self.assertEqual(manifest["name"], "Shimpz Cloudflare")
         self.assertEqual(manifest["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["allowed_hosts"], ["api.cloudflare.com"])
@@ -20,15 +23,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             manifest["accounts"],
             {
                 "cloudflare": {
-                    "provider": "cloudflare",
                     "scopes": ["zone.read", "dns.read", "offline_access"],
                 }
             },
         )
-        self.assertEqual(set(manifest["powers"]), {"list-zones", "list-dns-records"})
-        for power in manifest["powers"].values():
-            self.assertEqual(power["approval"], "never")
-            self.assertEqual(power["accounts"], ["cloudflare"])
         serialized = json.dumps(manifest)
         self.assertNotIn(".write", serialized)
         self.assertNotIn("secret", serialized.lower())
