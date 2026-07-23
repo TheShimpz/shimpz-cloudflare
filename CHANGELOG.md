@@ -4,6 +4,7 @@
 
 - Author both read-only Powers with `@power`, `field`, typed SDK output contracts, and `ctx.accounts`.
 - Replace the persistent Assistant server and proxy RPC with the one-shot Shimpz SDK runner.
+- Bind image builds to the reviewed SDK source tree carried by the umbrella repository.
 
 ## 0.1.5 - 2026-07-21
 

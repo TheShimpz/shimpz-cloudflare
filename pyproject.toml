@@ -14,6 +14,9 @@ package = false
 [tool.uv.sources]
 shimpz = { path = "../../packages/python/shimpz" }
 
+[tool.shimpz]
+sdk-tree = "28cd9741b96a41aac493ac3c3d5138fe12263748"
+
 [tool.ruff]
 target-version = "py314"
 line-length = 120

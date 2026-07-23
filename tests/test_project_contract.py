@@ -33,6 +33,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertNotIn(".write", serialized)
         self.assertNotIn("secret", serialized.lower())
 
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        sdk_tree = project["tool"]["shimpz"]["sdk-tree"]
+        self.assertRegex(sdk_tree, r"^[0-9a-f]{40}$")
+
     def test_sdk_contract_is_generated_closed_and_bounded(self) -> None:
         raw_contract = (ROOT / "shimpz.contract.json").read_text(encoding="utf-8")
         machine_contract = json.loads(raw_contract)
