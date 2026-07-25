@@ -18,9 +18,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
 
         self.assertEqual(
             set(manifest),
-            {"spec", "version", "name", "summary", "creators", "github", "allowed_hosts", "genesis", "accounts"},
+            {"spec", "id", "version", "name", "summary", "creators", "github", "allowed_hosts", "genesis", "accounts"},
         )
         self.assertEqual(manifest["spec"], 1)
+        self.assertEqual(manifest["id"], "shimpz-cloudflare")
         self.assertIsNotNone(
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", manifest["version"])
         )
