@@ -46,6 +46,9 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 body = importlib.import_module(module_name).run
                 self.assertTrue(inspect.iscoroutinefunction(body))
                 self.assertEqual(body.__name__, "run")
+                context = inspect.signature(body).parameters["ctx"]
+                self.assertEqual(context.kind, inspect.Parameter.KEYWORD_ONLY)
+                self.assertIs(context.default, inspect.Parameter.empty)
                 metadata = get_power_metadata(body)
                 self.assertIsInstance(metadata, PowerMetadata)
                 accounts = set(metadata.accounts)

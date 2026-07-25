@@ -6,7 +6,7 @@ from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecordResult, P
 
 
 @power(accounts=["cloudflare"])
-async def run(zone_id: CloudflareId, page: Page, per_page: PerPage, *, ctx: Context = None) -> DnsRecordResult:
+async def run(zone_id: CloudflareId, page: Page, per_page: PerPage, *, ctx: Context) -> DnsRecordResult:
     async with create_http_session() as session:
         return await CloudflareApiClient(session).list_dns_records(
             zone_id,
