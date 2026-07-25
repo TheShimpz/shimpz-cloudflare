@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict, get_args
 from urllib.parse import quote
 
 import aiohttp
@@ -13,43 +13,11 @@ import aiohttp
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=6, connect=3, sock_connect=3, sock_read=4)
-_HEX_ID = re.compile(r"^[0-9a-f]{32}$")
-_STATUS = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
-_DNS_TYPES = frozenset(
-    {
-        "A",
-        "AAAA",
-        "CAA",
-        "CERT",
-        "CNAME",
-        "DNSKEY",
-        "DS",
-        "HTTPS",
-        "LOC",
-        "MX",
-        "NAPTR",
-        "NS",
-        "OPENPGPKEY",
-        "PTR",
-        "SMIMEA",
-        "SRV",
-        "SSHFP",
-        "SVCB",
-        "TLSA",
-        "TXT",
-        "URI",
-    }
-)
-_ZONE_TYPES = frozenset({"full", "partial", "secondary", "internal"})
+_HEX_ID_PATTERN = "^[0-9a-f]{32}$"
+_STATUS_PATTERN = "^[a-z][a-z0-9_-]{0,31}$"
+_HEX_ID = re.compile(_HEX_ID_PATTERN)
+_STATUS = re.compile(_STATUS_PATTERN)
 
-Page = Annotated[int, "Cloudflare result page, starting at 1.", {"minimum": 1, "maximum": 100_000}]
-PerPage = Annotated[int, "Number of results to return, from 1 to 100.", {"minimum": 1, "maximum": 100}]
-CloudflareId = Annotated[str, "The 32-character hexadecimal Cloudflare zone id.", {"pattern": "^[0-9a-f]{32}$"}]
-ZoneName = Annotated[str, {"minLength": 1, "maxLength": 255}]
-AccountName = Annotated[str, {"minLength": 1, "maxLength": 160}]
-ZoneStatus = Annotated[str, {"pattern": "^[a-z][a-z0-9_-]{0,31}$"}]
-DnsContent = Annotated[str, {"minLength": 1, "maxLength": 65_535}]
-DnsTtl = Annotated[int, {"minimum": 1, "maximum": 2_147_483_647}]
 ZoneType = Literal["full", "internal", "partial", "secondary"]
 DnsType = Literal[
     "A",
@@ -74,6 +42,17 @@ DnsType = Literal[
     "TXT",
     "URI",
 ]
+_DNS_TYPES = frozenset(get_args(DnsType))
+_ZONE_TYPES = frozenset(get_args(ZoneType))
+
+Page = Annotated[int, "Cloudflare result page, starting at 1.", {"minimum": 1, "maximum": 100_000}]
+PerPage = Annotated[int, "Number of results to return, from 1 to 100.", {"minimum": 1, "maximum": 100}]
+CloudflareId = Annotated[str, "The 32-character hexadecimal Cloudflare zone id.", {"pattern": _HEX_ID_PATTERN}]
+ZoneName = Annotated[str, {"minLength": 1, "maxLength": 255}]
+AccountName = Annotated[str, {"minLength": 1, "maxLength": 160}]
+ZoneStatus = Annotated[str, {"pattern": _STATUS_PATTERN}]
+DnsContent = Annotated[str, {"minLength": 1, "maxLength": 65_535}]
+DnsTtl = Annotated[int, {"minimum": 1, "maximum": 2_147_483_647}]
 
 
 class Pagination(TypedDict):
