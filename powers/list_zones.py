@@ -1,7 +1,8 @@
 """List Cloudflare zones."""
 
-from lib.cloudflare import CloudflareApiClient, Page, PerPage, ZoneResult, create_http_session
 from shimpz import Context, power
+
+from lib.cloudflare import CloudflareApiClient, Page, PerPage, ZoneResult, create_http_session
 
 
 @power(accounts=["cloudflare"])
