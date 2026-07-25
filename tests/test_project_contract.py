@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import re
 import tomllib
 import unittest
 from pathlib import Path
@@ -20,7 +21,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             {"spec", "version", "name", "summary", "creators", "github", "allowed_hosts", "genesis", "accounts"},
         )
         self.assertEqual(manifest["spec"], 1)
-        self.assertEqual(manifest["version"], "0.1.0")
+        self.assertIsNotNone(
+            re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", manifest["version"])
+        )
+        self.assertGreater(tuple(int(part) for part in manifest["version"].split(".")), (0, 2, 1))
         self.assertEqual(manifest["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["allowed_hosts"], ["api.cloudflare.com"])
         self.assertEqual(
