@@ -12,7 +12,7 @@ import aiohttp
 
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
-HTTP_TIMEOUT = aiohttp.ClientTimeout(total=10, connect=3, sock_connect=3, sock_read=6)
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=6, connect=3, sock_connect=3, sock_read=4)
 _HEX_ID = re.compile(r"^[0-9a-f]{32}$")
 _STATUS = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 _DNS_TYPES = frozenset(
