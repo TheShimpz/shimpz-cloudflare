@@ -11,7 +11,6 @@ from lib.cloudflare import (
     MAX_RESPONSE_BYTES,
     CloudflareApiClient,
     CloudflareApiError,
-    CloudflareReauthorizationRequiredError,
 )
 from powers.list_dns_records import run as list_dns_records
 from powers.list_zones import run as list_zones
@@ -166,7 +165,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_authentication_and_provider_failures_never_reflect_token(self) -> None:
         for response, error in (
-            (_Response({}, status=401), CloudflareReauthorizationRequiredError),
+            (_Response({}, status=401), CloudflareApiError),
             (_Response({}, status=403), CloudflareApiError),
             (_Response({}, status=302, headers={"Location": "https://evil.example"}), CloudflareApiError),
         ):
@@ -174,6 +173,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
                 client = CloudflareApiClient(_Session([response]))  # type: ignore[arg-type]
                 with self.assertRaises(error) as caught:
                     await client.list_zones(1, 25, TEST_ACCESS_VALUE)
+                self.assertIs(type(caught.exception), error)
                 self.assertNotIn(TEST_ACCESS_VALUE, str(caught.exception))
 
     async def test_reassembles_a_bounded_chunked_provider_response(self) -> None:

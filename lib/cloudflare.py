@@ -122,10 +122,6 @@ class CloudflareApiError(RuntimeError):
     """Cloudflare did not satisfy the declared read-only Power contract."""
 
 
-class CloudflareReauthorizationRequiredError(CloudflareApiError):
-    """The OAuth access token is no longer accepted."""
-
-
 class CloudflareApiClient:
     def __init__(self, session: aiohttp.ClientSession) -> None:
         self._session = session
@@ -169,8 +165,6 @@ class CloudflareApiClient:
                 params=params,
                 allow_redirects=False,
             ) as response:
-                if response.status == 401:
-                    raise CloudflareReauthorizationRequiredError("Cloudflare reauthorization is required")
                 if response.status != 200:
                     raise CloudflareApiError("Cloudflare rejected the request")
                 media_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
