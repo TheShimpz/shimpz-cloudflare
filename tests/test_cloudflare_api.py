@@ -5,16 +5,16 @@ import unittest
 from typing import Any
 from unittest.mock import patch
 
-from shimpz.context import Context
+from shimpz import Context
 
-from app import (
+from lib.cloudflare import (
     MAX_RESPONSE_BYTES,
     CloudflareApiClient,
     CloudflareApiError,
     CloudflareReauthorizationRequiredError,
-    list_dns_records,
-    list_zones,
 )
+from powers.list_dns_records import run as list_dns_records
+from powers.list_zones import run as list_zones
 
 ZONE_ID = "a" * 32
 ACCOUNT_ID = "b" * 32
@@ -89,19 +89,14 @@ def _page(result: list[object]) -> dict[str, object]:
 class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_sdk_powers_read_the_invocation_scoped_cloudflare_account(self) -> None:
         session = _Session([_Response(_page([])), _Response(_page([]))])
-        context = Context.from_rpc(
-            {
-                "cloudflare": {
-                    "type": "oauth2-bearer",
-                    "access_token": TEST_ACCESS_VALUE,
-                }
-            },
-            [],
-        )
+        context = Context({"cloudflare": TEST_ACCESS_VALUE})
 
-        with patch("app.create_http_session", return_value=session):
-            zones = await list_zones(1, 25, context)
-            records = await list_dns_records(ZONE_ID, 1, 25, context)
+        with (
+            patch("powers.list_zones.create_http_session", return_value=session),
+            patch("powers.list_dns_records.create_http_session", return_value=session),
+        ):
+            zones = await list_zones(1, 25, ctx=context)
+            records = await list_dns_records(ZONE_ID, 1, 25, ctx=context)
 
         self.assertEqual(zones["zones"], [])
         self.assertEqual(records["records"], [])

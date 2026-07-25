@@ -1,4 +1,4 @@
-"""Read-only Cloudflare Powers authored with the Shimpz Python SDK."""
+"""Bounded read-only access to the Cloudflare API."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from typing import Annotated, Any, Literal, TypedDict
 from urllib.parse import quote
 
 import aiohttp
-from shimpz import field, power
 
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
@@ -43,9 +42,9 @@ _DNS_TYPES = frozenset(
 )
 _ZONE_TYPES = frozenset({"full", "partial", "secondary", "internal"})
 
-Page = Annotated[int, {"minimum": 1, "maximum": 100_000}]
-PerPage = Annotated[int, {"minimum": 1, "maximum": 100}]
-CloudflareId = Annotated[str, {"pattern": "^[0-9a-f]{32}$"}]
+Page = Annotated[int, "Cloudflare result page, starting at 1.", {"minimum": 1, "maximum": 100_000}]
+PerPage = Annotated[int, "Number of results to return, from 1 to 100.", {"minimum": 1, "maximum": 100}]
+CloudflareId = Annotated[str, "The 32-character hexadecimal Cloudflare zone id.", {"pattern": "^[0-9a-f]{32}$"}]
 ZoneName = Annotated[str, {"minLength": 1, "maxLength": 255}]
 AccountName = Annotated[str, {"minLength": 1, "maxLength": 160}]
 ZoneStatus = Annotated[str, {"pattern": "^[a-z][a-z0-9_-]{0,31}$"}]
@@ -206,38 +205,8 @@ def create_http_session() -> aiohttp.ClientSession:
         connector=connector,
         timeout=HTTP_TIMEOUT,
         trust_env=True,
-        headers={"User-Agent": "shimpz-cloudflare/0.2.1"},
+        headers={"User-Agent": "shimpz-cloudflare/0.1.0"},
     )
-
-
-@power(accounts=["cloudflare"])
-async def list_zones(
-    page=field(Page, prompt="Cloudflare result page, starting at 1."),
-    per_page=field(PerPage, prompt="Number of zones to return, from 1 to 100."),
-    ctx=None,
-) -> ZoneResult:
-    async with create_http_session() as session:
-        return await CloudflareApiClient(session).list_zones(
-            page,
-            per_page,
-            ctx.accounts.cloudflare.access_token,
-        )
-
-
-@power(accounts=["cloudflare"])
-async def list_dns_records(
-    zone_id=field(CloudflareId, prompt="The 32-character hexadecimal Cloudflare zone id."),
-    page=field(Page, prompt="Cloudflare result page, starting at 1."),
-    per_page=field(PerPage, prompt="Number of DNS records to return, from 1 to 100."),
-    ctx=None,
-) -> DnsRecordResult:
-    async with create_http_session() as session:
-        return await CloudflareApiClient(session).list_dns_records(
-            zone_id,
-            page,
-            per_page,
-            ctx.accounts.cloudflare.access_token,
-        )
 
 
 async def _read_bounded(content: Any) -> bytes:
