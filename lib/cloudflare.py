@@ -172,10 +172,8 @@ class CloudflareApiClient:
 
 
 def create_http_session() -> aiohttp.ClientSession:
-    connector = aiohttp.TCPConnector(limit=16, limit_per_host=16, ttl_dns_cache=60)
     return aiohttp.ClientSession(
         auto_decompress=False,
-        connector=connector,
         timeout=HTTP_TIMEOUT,
         trust_env=True,
         headers={"User-Agent": "shimpz-cloudflare/0.3.0"},
