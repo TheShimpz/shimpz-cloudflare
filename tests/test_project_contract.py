@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import importlib
+import inspect
 import tomllib
 import unittest
 from pathlib import Path
+
+from shimpz.power import PowerMetadata, get_power_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,10 +34,19 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             {path.name for path in powers.iterdir() if path.name != "__pycache__"},
             {"list_zones.py", "list_dns_records.py"},
         )
-        for path in powers.glob("*.py"):
-            source = path.read_text(encoding="utf-8")
-            self.assertEqual(source.count("@power("), 1)
-            self.assertEqual(source.count("async def run("), 1)
+        declared_accounts = set(tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["accounts"])
+        used_accounts: set[str] = set()
+        for module_name in ("powers.list_zones", "powers.list_dns_records"):
+            with self.subTest(module=module_name):
+                body = importlib.import_module(module_name).run
+                self.assertTrue(inspect.iscoroutinefunction(body))
+                self.assertEqual(body.__name__, "run")
+                metadata = get_power_metadata(body)
+                self.assertIsInstance(metadata, PowerMetadata)
+                accounts = set(metadata.accounts)
+                self.assertLessEqual(accounts, declared_accounts)
+                used_accounts.update(accounts)
+        self.assertEqual(used_accounts, declared_accounts)
 
     def test_repository_contains_no_generated_or_container_files(self) -> None:
         absent = {
