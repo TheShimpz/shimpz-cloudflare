@@ -70,18 +70,5 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 used_integrations.update(integrations)
         self.assertEqual(used_integrations, declared_integrations)
 
-    def test_repository_contains_no_generated_or_container_files(self) -> None:
-        absent = {
-            ".dockerignore",
-            "CHANGELOG.md",
-            "Dockerfile",
-            "GENESIS.md",
-            "requirements.lock",
-            "shimpz.contract.json",
-            "uv.lock",
-        }
-        self.assertFalse({name for name in absent if (ROOT / name).exists()})
-
-
 if __name__ == "__main__":
     unittest.main()

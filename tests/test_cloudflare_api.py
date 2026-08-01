@@ -5,8 +5,6 @@ import unittest
 from typing import Any
 from unittest.mock import patch
 
-from shimpz import Context
-
 from lib.cloudflare import (
     MAX_RESPONSE_BYTES,
     CloudflareApiClient,
@@ -14,6 +12,7 @@ from lib.cloudflare import (
 )
 from powers.list_dns_records import run as list_dns_records
 from powers.list_zones import run as list_zones
+from shimpz import Context
 
 ZONE_ID = "a" * 32
 ACCOUNT_ID = "b" * 32
