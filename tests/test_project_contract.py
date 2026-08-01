@@ -18,7 +18,18 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
 
         self.assertEqual(
             set(manifest),
-            {"spec", "id", "version", "name", "summary", "creators", "github", "allowed_hosts", "genesis", "accounts"},
+            {
+                "spec",
+                "id",
+                "version",
+                "name",
+                "summary",
+                "creators",
+                "github",
+                "allowed_hosts",
+                "genesis",
+                "integrations",
+            },
         )
         self.assertEqual(manifest["spec"], 1)
         self.assertEqual(manifest["id"], "shimpz-cloudflare")
@@ -26,10 +37,11 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", manifest["version"])
         )
         self.assertGreater(tuple(int(part) for part in manifest["version"].split(".")), (0, 2, 1))
+        self.assertEqual(manifest["creators"], ["@shimpz"])
         self.assertEqual(manifest["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["allowed_hosts"], ["api.cloudflare.com"])
         self.assertEqual(
-            manifest["accounts"],
+            manifest["integrations"],
             {"cloudflare": {"scopes": ["zone.read", "dns.read", "offline_access"]}},
         )
 
@@ -39,8 +51,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             {path.name for path in powers.iterdir() if path.name != "__pycache__"},
             {"list_zones.py", "list_dns_records.py"},
         )
-        declared_accounts = set(tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["accounts"])
-        used_accounts: set[str] = set()
+        declared_integrations = set(
+            tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["integrations"]
+        )
+        used_integrations: set[str] = set()
         for module_name in ("powers.list_zones", "powers.list_dns_records"):
             with self.subTest(module=module_name):
                 body = importlib.import_module(module_name).run
@@ -51,10 +65,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 self.assertIs(context.default, inspect.Parameter.empty)
                 metadata = get_power_metadata(body)
                 self.assertIsInstance(metadata, PowerMetadata)
-                accounts = set(metadata.accounts)
-                self.assertLessEqual(accounts, declared_accounts)
-                used_accounts.update(accounts)
-        self.assertEqual(used_accounts, declared_accounts)
+                integrations = set(metadata.integrations)
+                self.assertLessEqual(integrations, declared_integrations)
+                used_integrations.update(integrations)
+        self.assertEqual(used_integrations, declared_integrations)
 
     def test_repository_contains_no_generated_or_container_files(self) -> None:
         absent = {

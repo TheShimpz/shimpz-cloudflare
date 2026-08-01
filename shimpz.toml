@@ -3,7 +3,7 @@ id = "shimpz-cloudflare"
 version = "0.3.0"
 name = "Shimpz Cloudflare"
 summary = "List Cloudflare zones and inspect their DNS records through OAuth."
-creators = ["@roxygens"]
+creators = ["@shimpz"]
 github = "https://github.com/TheShimpz/shimpz-cloudflare"
 allowed_hosts = ["api.cloudflare.com"]
 genesis = """
@@ -14,5 +14,5 @@ list-zones. Start with page 1 and a small per_page. These Powers are read-only: 
 record or zone was changed, and never ask the user to paste OAuth credentials.
 """
 
-[accounts.cloudflare]
+[integrations.cloudflare]
 scopes = ["zone.read", "dns.read", "offline_access"]
