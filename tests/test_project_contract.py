@@ -19,27 +19,26 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertEqual(
             set(manifest),
             {
-                "spec",
-                "id",
-                "version",
-                "name",
-                "summary",
-                "creators",
-                "github",
-                "allowed_hosts",
-                "genesis",
+                "shimpz",
+                "network",
                 "integrations",
             },
         )
-        self.assertEqual(manifest["spec"], 1)
-        self.assertEqual(manifest["id"], "shimpz-cloudflare")
-        self.assertIsNotNone(
-            re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", manifest["version"])
+        metadata = manifest["shimpz"]
+        self.assertEqual(
+            set(metadata),
+            {"spec", "id", "version", "name", "summary", "creators", "github", "genesis"},
         )
-        self.assertGreater(tuple(int(part) for part in manifest["version"].split(".")), (0, 2, 1))
-        self.assertEqual(manifest["creators"], ["@shimpz"])
-        self.assertEqual(manifest["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
-        self.assertEqual(manifest["allowed_hosts"], ["api.cloudflare.com"])
+        self.assertEqual(set(manifest["network"]), {"allowed_hosts"})
+        self.assertEqual(metadata["spec"], 1)
+        self.assertEqual(metadata["id"], "shimpz-cloudflare")
+        self.assertIsNotNone(
+            re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", metadata["version"])
+        )
+        self.assertEqual(metadata["version"], "0.3.2")
+        self.assertEqual(metadata["creators"], ["@shimpz"])
+        self.assertEqual(metadata["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
+        self.assertEqual(manifest["network"]["allowed_hosts"], ["api.cloudflare.com"])
         self.assertEqual(
             manifest["integrations"],
             {"cloudflare": {"scopes": ["zone.read", "dns.read", "offline_access"]}},
