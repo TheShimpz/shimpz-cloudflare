@@ -12,6 +12,11 @@ use fixed Cloudflare API paths, reject redirects, and limit response sizes and p
 Each file in `powers/` is one Power. Shared provider code lives in `lib/cloudflare.py`. The Shimpz CLI
 manages Python and the SDK, generates the machine contract in memory, and runs Powers without Docker.
 
+The root `icon.png` uses the official Cloudflare cloud mark from the Cloudflare press kit. Cloudflare
+and the Cloudflare logo are trademarks and/or registered trademarks of Cloudflare, Inc. in the United
+States and other jurisdictions. Their use identifies the provider integration and does not imply
+Cloudflare endorsement of this Assistant.
+
 ## Local checks
 
 ```console
