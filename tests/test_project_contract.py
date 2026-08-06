@@ -35,7 +35,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertIsNotNone(
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", metadata["version"])
         )
-        self.assertEqual(metadata["version"], "0.3.4")
+        self.assertEqual(metadata["version"], "0.3.5")
         self.assertEqual(metadata["creators"], ["@shimpz"])
         self.assertEqual(metadata["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["network"]["allowed_hosts"], ["api.cloudflare.com"])
@@ -50,9 +50,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             {path.name for path in powers.iterdir() if path.name != "__pycache__"},
             {"list_zones.py", "list_dns_records.py"},
         )
-        declared_integrations = set(
-            tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["integrations"]
-        )
+        declared_integrations = set(tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["integrations"])
         used_integrations: set[str] = set()
         for module_name in ("powers.list_zones", "powers.list_dns_records"):
             with self.subTest(module=module_name):
@@ -64,10 +62,12 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 self.assertIs(context.default, inspect.Parameter.empty)
                 metadata = get_power_metadata(body)
                 self.assertIsInstance(metadata, PowerMetadata)
+                self.assertEqual(metadata.human_requests, ())
                 integrations = set(metadata.integrations)
                 self.assertLessEqual(integrations, declared_integrations)
                 used_integrations.update(integrations)
         self.assertEqual(used_integrations, declared_integrations)
+
 
 if __name__ == "__main__":
     unittest.main()

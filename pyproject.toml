@@ -1,11 +1,11 @@
 [project]
 name = "shimpz-cloudflare"
-version = "0.3.4"
+version = "0.3.5"
 description = "Read-only Cloudflare zones and DNS Assistant for Shimpz"
 requires-python = ">=3.14"
 dependencies = [
   "aiohttp==3.14.1",
-  "shimpz==0.2.1",
+  "shimpz==0.3.0",
 ]
 
 [tool.ruff]

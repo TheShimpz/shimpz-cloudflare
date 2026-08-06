@@ -1,7 +1,8 @@
 """List DNS records in one Cloudflare zone."""
 
-from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecordResult, Page, PerPage, create_http_session
 from shimpz import Context, power
+
+from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecordResult, Page, PerPage, create_http_session
 
 
 @power(integrations=["cloudflare"])
