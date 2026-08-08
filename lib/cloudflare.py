@@ -14,6 +14,7 @@ import aiohttp
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
 MAX_REQUEST_BYTES = 96 * 1024
+MAX_TXT_CHARACTER_STRING_BYTES = 255
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=6, connect=3, sock_connect=3, sock_read=4)
 _HEX_ID_PATTERN = "^[0-9a-f]{32}$"
 _STATUS_PATTERN = "^[a-z][a-z0-9_-]{0,31}$"
@@ -59,7 +60,11 @@ DnsContent = Annotated[str, {"minLength": 1, "maxLength": 65_535}]
 DnsTtl = Annotated[int, {"minimum": 1, "maximum": 2_147_483_647}]
 WritableDnsTtl = Annotated[int, "Use 1 for automatic TTL or 60–86400 seconds.", {"minimum": 1, "maximum": 86_400}]
 WritableDnsName = Annotated[str, "Complete DNS record name in ASCII or Punycode.", {"minLength": 1, "maxLength": 253}]
-WritableDnsContent = Annotated[str, "DNS record content for the selected record type.", {"minLength": 1, "maxLength": 65_535}]
+WritableDnsContent = Annotated[
+    str,
+    "DNS record content for the selected record type; TXT must be plain unquoted text up to 255 UTF-8 bytes.",
+    {"minLength": 1, "maxLength": 255},
+]
 
 
 class Pagination(TypedDict):
@@ -406,7 +411,7 @@ def _dns_name(value: object) -> str:
 
 
 def _dns_content(record_type: str, value: object, name: str) -> str:
-    content = _text(value, 65_535)
+    content = _text(value, 255)
     if record_type == "A":
         try:
             return str(ipaddress.IPv4Address(content))
@@ -422,7 +427,9 @@ def _dns_content(record_type: str, value: object, name: str) -> str:
         if target == name:
             raise CloudflareApiError("Cloudflare DNS record content is invalid")
         return target
-    return content
+    if '"' in content or "\\" in content or len(content.encode("utf-8")) > MAX_TXT_CHARACTER_STRING_BYTES:
+        raise CloudflareApiError("Cloudflare DNS record content is invalid")
+    return f'"{content}"'
 
 
 def _record_matches(record: DnsRecord, desired: Mapping[str, object]) -> bool:

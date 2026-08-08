@@ -346,6 +346,58 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(session.requests[1][1]["headers"]["Content-Type"], "application/json")
 
+    async def test_ensure_canonicalizes_plain_txt_before_lookup_and_create(self) -> None:
+        canonical = _record(
+            record_type="TXT",
+            name="_proof.shimpz.com",
+            content='"proof"',
+            ttl=300,
+            proxied=False,
+        )
+        session = _Session(
+            [
+                _Response(_page([], per_page=100)),
+                _Response({"success": True, "result": canonical}),
+            ]
+        )
+
+        result = await CloudflareApiClient(session).ensure_dns_record(  # type: ignore[arg-type]
+            ZONE_ID,
+            "TXT",
+            "_proof.shimpz.com",
+            "proof",
+            300,
+            False,
+            TEST_ACCESS_VALUE,
+        )
+
+        self.assertTrue(result["created"])
+        self.assertEqual(session.requests[0][1]["params"]["content"], '"proof"')
+        self.assertEqual(json.loads(session.requests[1][1]["data"])["content"], '"proof"')
+
+    async def test_ensure_reuses_a_canonical_txt_record_without_post(self) -> None:
+        existing = _record(
+            record_type="TXT",
+            name="_proof.shimpz.com",
+            content='"proof"',
+            ttl=300,
+            proxied=False,
+        )
+        session = _Session([_Response(_page([existing], per_page=100))])
+
+        result = await CloudflareApiClient(session).ensure_dns_record(  # type: ignore[arg-type]
+            ZONE_ID,
+            "TXT",
+            "_proof.shimpz.com",
+            "proof",
+            300,
+            False,
+            TEST_ACCESS_VALUE,
+        )
+
+        self.assertFalse(result["created"])
+        self.assertEqual([kwargs["method"] for _url, kwargs in session.requests], ["GET"])
+
     async def test_ensure_refuses_a_truncated_filtered_lookup_before_post(self) -> None:
         truncated = _page([], per_page=100)
         truncated["result_info"] = {
@@ -371,7 +423,13 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([kwargs["method"] for _url, kwargs in session.requests], ["GET"])
 
     async def test_replace_uses_full_put_and_rejects_result_drift(self) -> None:
-        replacement = _record(record_type="TXT", name="_proof.shimpz.com", content="proof", ttl=300, proxied=False)
+        replacement = _record(
+            record_type="TXT",
+            name="_proof.shimpz.com",
+            content='"proof"',
+            ttl=300,
+            proxied=False,
+        )
         session = _Session([_Response({"success": True, "result": replacement})])
         client = CloudflareApiClient(session)  # type: ignore[arg-type]
 
@@ -392,6 +450,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             session.requests[0][0],
             f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}/dns_records/{RECORD_ID}",
         )
+        self.assertEqual(json.loads(session.requests[0][1]["data"])["content"], '"proof"')
         drifted = _Session([_Response({"success": True, "result": {**replacement, "content": "changed"}})])
         with self.assertRaises(CloudflareApiError):
             await CloudflareApiClient(drifted).replace_dns_record(  # type: ignore[arg-type]
@@ -442,6 +501,9 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             ("AAAA", "api.shimpz.com", "192.0.2.1", 300, False),
             ("CNAME", "api.shimpz.com", "api.shimpz.com", 300, False),
             ("TXT", "_proof.shimpz.com", "proof", 1, True),
+            ("TXT", "_proof.shimpz.com", 'bad"quote', 300, False),
+            ("TXT", "_proof.shimpz.com", "bad\\escape", 300, False),
+            ("TXT", "_proof.shimpz.com", "é" * 128, 300, False),
             ("A", "api.shimpz.com", "192.0.2.1", 30, False),
             ("A", "api.shimpz.com", "192.0.2.1", 300, True),
         )
