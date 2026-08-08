@@ -1,7 +1,7 @@
 [project]
 name = "shimpz-cloudflare"
-version = "0.3.7"
-description = "Read-only Cloudflare zone and DNS Assistant for Shimpz"
+version = "0.4.0"
+description = "Cloudflare zone discovery and reconciliable DNS management for Shimpz"
 requires-python = ">=3.14"
 dependencies = [
   "aiohttp==3.14.1",

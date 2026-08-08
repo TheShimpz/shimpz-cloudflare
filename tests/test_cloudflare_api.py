@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -11,11 +12,15 @@ from lib.cloudflare import (
     MAX_RESPONSE_BYTES,
     CloudflareApiClient,
     CloudflareApiError,
+    create_http_session,
 )
+from powers.delete_dns_record import run as delete_dns_record
+from powers.ensure_dns_record import run as ensure_dns_record
 from powers.get_dns_record import run as get_dns_record
 from powers.get_zone import run as get_zone
 from powers.list_dns_records import run as list_dns_records
 from powers.list_zones import run as list_zones
+from powers.replace_dns_record import run as replace_dns_record
 
 ZONE_ID = "a" * 32
 ACCOUNT_ID = "b" * 32
@@ -62,12 +67,15 @@ class _Response:
 
 
 class _Session:
-    def __init__(self, responses: list[_Response]) -> None:
+    def __init__(self, responses: list[_Response], events: list[str] | None = None) -> None:
         self.responses = responses
         self.requests: list[tuple[str, dict[str, Any]]] = []
+        self.events = events
 
-    def get(self, url: str, **kwargs: Any) -> _Response:
-        self.requests.append((url, kwargs))
+    def request(self, method: str, url: str, **kwargs: Any) -> _Response:
+        self.requests.append((url, {"method": method, **kwargs}))
+        if self.events is not None:
+            self.events.append(f"provider:{method}")
         return self.responses.pop(0)
 
     async def __aenter__(self):
@@ -85,6 +93,52 @@ def _page(result: list[object]) -> dict[str, object]:
         "result": result,
         "result_info": {"page": 1, "per_page": 25, "count": len(result), "total_count": len(result), "total_pages": 1},
     }
+
+
+def _record(
+    *,
+    record_id: str = RECORD_ID,
+    record_type: str = "A",
+    name: str = "api.shimpz.com",
+    content: str = "192.0.2.1",
+    ttl: int = 1,
+    proxied: bool = True,
+) -> dict[str, object]:
+    return {
+        "id": record_id,
+        "type": record_type,
+        "name": name,
+        "content": content,
+        "ttl": ttl,
+        "proxied": proxied,
+        "proxiable": record_type in {"A", "AAAA", "CNAME"},
+    }
+
+
+class _PowerContext:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+        self.integrations = SimpleNamespace(cloudflare=self)
+
+    def request_approval(self, *, title: str, description: str) -> None:
+        self.assert_public_copy(title, description)
+        self.events.append("approval")
+
+    def request_auth(self, assurance: str, *, title: str, description: str) -> None:
+        if assurance != "reauth":
+            raise AssertionError("unexpected assurance")
+        self.assert_public_copy(title, description)
+        self.events.append("auth:reauth")
+
+    @property
+    def access_token(self) -> str:
+        self.events.append("token")
+        return TEST_ACCESS_VALUE
+
+    @staticmethod
+    def assert_public_copy(title: str, description: str) -> None:
+        if TEST_ACCESS_VALUE in title or TEST_ACCESS_VALUE in description:
+            raise AssertionError("token leaked into request copy")
 
 
 class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
@@ -132,6 +186,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(records["records"], [])
         self.assertEqual(selected_record["id"], RECORD_ID)
         for _url, kwargs in session.requests:
+            self.assertEqual(kwargs["method"], "GET")
             self.assertEqual(
                 kwargs["headers"]["Authorization"],
                 f"Bearer {TEST_ACCESS_VALUE}",
@@ -190,6 +245,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
         for _url, kwargs in session.requests:
+            self.assertEqual(kwargs["method"], "GET")
             self.assertEqual(kwargs["headers"]["Authorization"], f"Bearer {TEST_ACCESS_VALUE}")
             self.assertEqual(kwargs["headers"]["Accept-Encoding"], "identity")
             self.assertIs(kwargs["allow_redirects"], False)
@@ -234,6 +290,167 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
         self.assertTrue(all(kwargs["params"] == {} for _url, kwargs in session.requests))
+
+    async def test_ensure_returns_an_exact_existing_record_without_post(self) -> None:
+        session = _Session([_Response(_page([_record()]))])
+        client = CloudflareApiClient(session)  # type: ignore[arg-type]
+
+        result = await client.ensure_dns_record(
+            ZONE_ID,
+            "A",
+            "api.shimpz.com",
+            "192.0.2.1",
+            1,
+            True,
+            TEST_ACCESS_VALUE,
+        )
+
+        self.assertFalse(result["created"])
+        self.assertEqual(result["record"]["id"], RECORD_ID)
+        self.assertEqual([kwargs["method"] for _url, kwargs in session.requests], ["GET"])
+        self.assertEqual(
+            session.requests[0][1]["params"],
+            {"type": "A", "name": "api.shimpz.com", "content": "192.0.2.1", "page": "1", "per_page": "100"},
+        )
+
+    async def test_ensure_creates_an_absent_record_once_with_canonical_json(self) -> None:
+        session = _Session(
+            [
+                _Response(_page([])),
+                _Response({"success": True, "result": _record()}),
+            ]
+        )
+        client = CloudflareApiClient(session)  # type: ignore[arg-type]
+
+        result = await client.ensure_dns_record(
+            ZONE_ID,
+            "A",
+            "api.shimpz.com",
+            "192.0.2.1",
+            1,
+            True,
+            TEST_ACCESS_VALUE,
+        )
+
+        self.assertTrue(result["created"])
+        self.assertEqual([kwargs["method"] for _url, kwargs in session.requests], ["GET", "POST"])
+        self.assertEqual(
+            json.loads(session.requests[1][1]["data"]),
+            {"type": "A", "name": "api.shimpz.com", "content": "192.0.2.1", "ttl": 1, "proxied": True},
+        )
+        self.assertEqual(session.requests[1][1]["headers"]["Content-Type"], "application/json")
+
+    async def test_replace_uses_full_put_and_rejects_result_drift(self) -> None:
+        replacement = _record(record_type="TXT", name="_proof.shimpz.com", content="proof", ttl=300, proxied=False)
+        session = _Session([_Response({"success": True, "result": replacement})])
+        client = CloudflareApiClient(session)  # type: ignore[arg-type]
+
+        result = await client.replace_dns_record(
+            ZONE_ID,
+            RECORD_ID,
+            "TXT",
+            "_proof.shimpz.com",
+            "proof",
+            300,
+            False,
+            TEST_ACCESS_VALUE,
+        )
+
+        self.assertEqual(result["id"], RECORD_ID)
+        self.assertEqual(session.requests[0][1]["method"], "PUT")
+        self.assertEqual(
+            session.requests[0][0],
+            f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}/dns_records/{RECORD_ID}",
+        )
+        drifted = _Session([_Response({"success": True, "result": {**replacement, "content": "changed"}})])
+        with self.assertRaises(CloudflareApiError):
+            await CloudflareApiClient(drifted).replace_dns_record(  # type: ignore[arg-type]
+                ZONE_ID,
+                RECORD_ID,
+                "TXT",
+                "_proof.shimpz.com",
+                "proof",
+                300,
+                False,
+                TEST_ACCESS_VALUE,
+            )
+
+    async def test_delete_reconciles_absence_and_deletes_an_existing_exact_record(self) -> None:
+        absent = _Session([_Response({}, status=404)])
+        self.assertEqual(
+            await CloudflareApiClient(absent).delete_dns_record(ZONE_ID, RECORD_ID, TEST_ACCESS_VALUE),  # type: ignore[arg-type]
+            {"record_id": RECORD_ID, "deleted": False},
+        )
+        self.assertEqual([kwargs["method"] for _url, kwargs in absent.requests], ["GET"])
+
+        existing = _Session(
+            [
+                _Response({"success": True, "result": _record()}),
+                _Response({"result": {"id": RECORD_ID}}),
+            ]
+        )
+        self.assertEqual(
+            await CloudflareApiClient(existing).delete_dns_record(ZONE_ID, RECORD_ID, TEST_ACCESS_VALUE),  # type: ignore[arg-type]
+            {"record_id": RECORD_ID, "deleted": True},
+        )
+        self.assertEqual([kwargs["method"] for _url, kwargs in existing.requests], ["GET", "DELETE"])
+
+    async def test_write_inputs_are_closed_before_provider_io(self) -> None:
+        invalid = (
+            ("MX", "mail.shimpz.com", "mailhost.shimpz.com", 300, False),
+            ("A", "Api.shimpz.com", "192.0.2.1", 300, False),
+            ("A", "api.shimpz.com", "not-an-address", 300, False),
+            ("AAAA", "api.shimpz.com", "192.0.2.1", 300, False),
+            ("CNAME", "api.shimpz.com", "api.shimpz.com", 300, False),
+            ("TXT", "_proof.shimpz.com", "proof", 1, True),
+            ("A", "api.shimpz.com", "192.0.2.1", 30, False),
+            ("A", "api.shimpz.com", "192.0.2.1", 300, True),
+        )
+        for values in invalid:
+            session = _Session([])
+            with self.subTest(values=values), self.assertRaises(CloudflareApiError):
+                await CloudflareApiClient(session).ensure_dns_record(  # type: ignore[arg-type]
+                    ZONE_ID,
+                    *values,
+                    TEST_ACCESS_VALUE,
+                )
+            self.assertEqual(session.requests, [])
+
+    async def test_mutation_powers_request_approval_and_reauth_before_token_and_provider(self) -> None:
+        scenarios = (
+            (
+                ensure_dns_record,
+                (ZONE_ID, "A", "api.shimpz.com", "192.0.2.1", 1, True),
+                [_Response(_page([_record()]))],
+                "powers.ensure_dns_record.create_http_session",
+                "GET",
+            ),
+            (
+                replace_dns_record,
+                (ZONE_ID, RECORD_ID, "A", "api.shimpz.com", "192.0.2.1", 1, True),
+                [_Response({"success": True, "result": _record()})],
+                "powers.replace_dns_record.create_http_session",
+                "PUT",
+            ),
+            (
+                delete_dns_record,
+                (ZONE_ID, RECORD_ID),
+                [_Response({}, status=404)],
+                "powers.delete_dns_record.create_http_session",
+                "GET",
+            ),
+        )
+        for power_body, arguments, responses, session_patch, provider_method in scenarios:
+            events: list[str] = []
+            session = _Session(responses, events)
+            with self.subTest(power=power_body.__module__), patch(session_patch, return_value=session):
+                await power_body(*arguments, ctx=_PowerContext(events))  # type: ignore[arg-type]
+            self.assertEqual(events[:4], ["approval", "auth:reauth", "token", f"provider:{provider_method}"])
+
+    async def test_http_session_disables_aiohttp_connection_retries(self) -> None:
+        session = create_http_session()
+        self.addAsyncCleanup(session.close)
+        self.assertFalse(session._retry_connection)
 
     async def test_authentication_and_provider_failures_never_reflect_token(self) -> None:
         for response, error in (

@@ -1,7 +1,8 @@
-"""Bounded read-only access to the Cloudflare API."""
+"""Bounded access to the Cloudflare zones and DNS record APIs."""
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 from collections.abc import Mapping
@@ -12,6 +13,7 @@ import aiohttp
 
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
+MAX_REQUEST_BYTES = 96 * 1024
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=6, connect=3, sock_connect=3, sock_read=4)
 _HEX_ID_PATTERN = "^[0-9a-f]{32}$"
 _STATUS_PATTERN = "^[a-z][a-z0-9_-]{0,31}$"
@@ -42,7 +44,9 @@ DnsType = Literal[
     "TXT",
     "URI",
 ]
+WritableDnsType = Literal["A", "AAAA", "CNAME", "TXT"]
 _DNS_TYPES = frozenset(get_args(DnsType))
+_WRITABLE_DNS_TYPES = frozenset(get_args(WritableDnsType))
 _ZONE_TYPES = frozenset(get_args(ZoneType))
 
 Page = Annotated[int, "Cloudflare result page, starting at 1.", {"minimum": 1, "maximum": 100_000}]
@@ -53,6 +57,9 @@ AccountName = Annotated[str, {"minLength": 1, "maxLength": 160}]
 ZoneStatus = Annotated[str, {"pattern": _STATUS_PATTERN}]
 DnsContent = Annotated[str, {"minLength": 1, "maxLength": 65_535}]
 DnsTtl = Annotated[int, {"minimum": 1, "maximum": 2_147_483_647}]
+WritableDnsTtl = Annotated[int, "Use 1 for automatic TTL or 60–86400 seconds.", {"minimum": 1, "maximum": 86_400}]
+WritableDnsName = Annotated[str, "Complete DNS record name in ASCII or Punycode.", {"minLength": 1, "maxLength": 253}]
+WritableDnsContent = Annotated[str, "DNS record content for the selected record type.", {"minLength": 1, "maxLength": 65_535}]
 
 
 class Pagination(TypedDict):
@@ -97,8 +104,18 @@ class DnsRecordResult(TypedDict):
     pagination: Pagination
 
 
+class EnsureDnsRecordResult(TypedDict):
+    record: DnsRecord
+    created: bool
+
+
+class DeleteDnsRecordResult(TypedDict):
+    record_id: CloudflareId
+    deleted: bool
+
+
 class CloudflareApiError(RuntimeError):
-    """Cloudflare did not satisfy the declared read-only Power contract."""
+    """Cloudflare did not satisfy the declared Power contract."""
 
 
 class CloudflareApiClient:
@@ -145,7 +162,123 @@ class CloudflareApiClient:
         )
         return _dns_record(_object_result(payload))
 
+    async def ensure_dns_record(
+        self,
+        zone_id: str,
+        record_type: str,
+        name: str,
+        content: str,
+        ttl: int,
+        proxied: bool,
+        access_token: str,
+    ) -> EnsureDnsRecordResult:
+        desired = _write_record(record_type, name, content, ttl, proxied)
+        payload = await self._get(
+            f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records",
+            access_token,
+            {
+                "type": desired["type"],
+                "name": desired["name"],
+                "content": desired["content"],
+                "page": "1",
+                "per_page": "100",
+            },
+        )
+        matches = sorted(
+            (
+                record
+                for item in _result(payload, 100)
+                if _record_matches(record := _dns_record(item), desired)
+            ),
+            key=lambda record: record["id"],
+        )
+        if matches:
+            return {"record": matches[0], "created": False}
+        created = await self._write(
+            "POST",
+            f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records",
+            access_token,
+            desired,
+        )
+        record = _dns_record(_object_result(created))
+        if not _record_matches(record, desired):
+            raise CloudflareApiError("Cloudflare DNS record result is invalid")
+        return {"record": record, "created": True}
+
+    async def replace_dns_record(
+        self,
+        zone_id: str,
+        record_id: str,
+        record_type: str,
+        name: str,
+        content: str,
+        ttl: int,
+        proxied: bool,
+        access_token: str,
+    ) -> DnsRecord:
+        desired = _write_record(record_type, name, content, ttl, proxied)
+        payload = await self._write(
+            "PUT",
+            f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records/{quote(record_id, safe='')}",
+            access_token,
+            desired,
+        )
+        record = _dns_record(_object_result(payload))
+        if record["id"] != record_id or not _record_matches(record, desired):
+            raise CloudflareApiError("Cloudflare DNS record result is invalid")
+        return record
+
+    async def delete_dns_record(
+        self,
+        zone_id: str,
+        record_id: str,
+        access_token: str,
+    ) -> DeleteDnsRecordResult:
+        path = f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records/{quote(record_id, safe='')}"
+        existing = await self._request("GET", path, access_token, {}, absent_ok=True)
+        if existing is None:
+            return {"record_id": record_id, "deleted": False}
+        record = _dns_record(_object_result(existing))
+        if record["id"] != record_id:
+            raise CloudflareApiError("Cloudflare DNS record result is invalid")
+        deleted = await self._request("DELETE", path, access_token, {})
+        if deleted is None or _deleted_id(deleted) != record_id:
+            raise CloudflareApiError("Cloudflare DNS deletion result is invalid")
+        return {"record_id": record_id, "deleted": True}
+
     async def _get(self, path: str, access_token: str, params: Mapping[str, str]) -> dict[str, Any]:
+        payload = await self._request("GET", path, access_token, params)
+        if payload is None or payload.get("success") is not True:
+            raise CloudflareApiError("Cloudflare response is invalid")
+        return payload
+
+    async def _write(
+        self,
+        method: str,
+        path: str,
+        access_token: str,
+        body: Mapping[str, object],
+    ) -> dict[str, Any]:
+        encoded = json.dumps(body, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
+        if not 1 <= len(encoded) <= MAX_REQUEST_BYTES:
+            raise CloudflareApiError("Cloudflare request size is invalid")
+        payload = await self._request(method, path, access_token, {}, body=encoded)
+        if payload is None or payload.get("success") is not True:
+            raise CloudflareApiError("Cloudflare response is invalid")
+        return payload
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        access_token: str,
+        params: Mapping[str, str],
+        *,
+        body: bytes | None = None,
+        absent_ok: bool = False,
+    ) -> dict[str, Any] | None:
+        if method not in {"DELETE", "GET", "POST", "PUT"}:
+            raise CloudflareApiError("undeclared Cloudflare method")
         if not path.startswith("/client/v4/") or "?" in path or "#" in path:
             raise CloudflareApiError("undeclared Cloudflare endpoint")
         headers = {
@@ -153,13 +286,19 @@ class CloudflareApiClient:
             "Accept-Encoding": "identity",
             "Authorization": f"Bearer {access_token}",
         }
+        if body is not None:
+            headers["Content-Type"] = "application/json"
         try:
-            async with self._session.get(
+            async with self._session.request(
+                method,
                 f"{CLOUDFLARE_API_ORIGIN}{path}",
                 headers=headers,
                 params=params,
+                data=body,
                 allow_redirects=False,
             ) as response:
+                if absent_ok and response.status == 404:
+                    return None
                 if response.status != 200:
                     raise CloudflareApiError("Cloudflare rejected the request")
                 media_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
@@ -182,18 +321,20 @@ class CloudflareApiClient:
             payload = json.loads(raw, parse_constant=_reject_json_constant, object_pairs_hook=_unique_object)
         except (UnicodeError, ValueError) as exc:
             raise CloudflareApiError("Cloudflare response JSON is invalid") from exc
-        if not isinstance(payload, dict) or payload.get("success") is not True:
+        if not isinstance(payload, dict):
             raise CloudflareApiError("Cloudflare response is invalid")
         return payload
 
 
 def create_http_session() -> aiohttp.ClientSession:
-    return aiohttp.ClientSession(
+    session = aiohttp.ClientSession(
         auto_decompress=False,
         timeout=HTTP_TIMEOUT,
         trust_env=True,
-        headers={"User-Agent": "shimpz-cloudflare/0.3.0"},
+        headers={"User-Agent": "shimpz-cloudflare/0.4.0"},
     )
+    session._retry_connection = False
+    return session
 
 
 async def _read_bounded(content: Any) -> bytes:
@@ -219,6 +360,67 @@ def _object_result(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     if not isinstance(result, dict):
         raise CloudflareApiError("Cloudflare result is invalid")
     return result
+
+
+def _deleted_id(payload: Mapping[str, Any]) -> str:
+    result = _object_result(payload)
+    return _id(result.get("id"))
+
+
+def _write_record(record_type: str, name: str, content: str, ttl: int, proxied: bool) -> dict[str, object]:
+    if record_type not in _WRITABLE_DNS_TYPES:
+        raise CloudflareApiError("Cloudflare DNS record type is invalid")
+    normalized_name = _dns_name(name)
+    normalized_content = _dns_content(record_type, content, normalized_name)
+    if type(ttl) is not int or (ttl != 1 and not 60 <= ttl <= 86_400):
+        raise CloudflareApiError("Cloudflare DNS record TTL is invalid")
+    if type(proxied) is not bool or (proxied and (record_type == "TXT" or ttl != 1)):
+        raise CloudflareApiError("Cloudflare DNS proxy mode is invalid")
+    return {
+        "type": record_type,
+        "name": normalized_name,
+        "content": normalized_content,
+        "ttl": ttl,
+        "proxied": proxied,
+    }
+
+
+def _dns_name(value: object) -> str:
+    name = _text(value, 253)
+    if not name.isascii() or name != name.lower() or name.startswith(".") or name.endswith(".") or ".." in name:
+        raise CloudflareApiError("Cloudflare DNS record name is invalid")
+    labels = name.split(".")
+    if any(
+        len(label) > 63
+        or re.fullmatch(r"[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?", label) is None
+        for label in labels
+    ):
+        raise CloudflareApiError("Cloudflare DNS record name is invalid")
+    return name
+
+
+def _dns_content(record_type: str, value: object, name: str) -> str:
+    content = _text(value, 65_535)
+    if record_type == "A":
+        try:
+            return str(ipaddress.IPv4Address(content))
+        except ipaddress.AddressValueError as exc:
+            raise CloudflareApiError("Cloudflare DNS record content is invalid") from exc
+    if record_type == "AAAA":
+        try:
+            return str(ipaddress.IPv6Address(content))
+        except ipaddress.AddressValueError as exc:
+            raise CloudflareApiError("Cloudflare DNS record content is invalid") from exc
+    if record_type == "CNAME":
+        target = _dns_name(content)
+        if target == name:
+            raise CloudflareApiError("Cloudflare DNS record content is invalid")
+        return target
+    return content
+
+
+def _record_matches(record: DnsRecord, desired: Mapping[str, object]) -> bool:
+    return all(record[key] == desired[key] for key in ("type", "name", "content", "ttl", "proxied"))
 
 
 def _pagination(

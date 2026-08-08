@@ -35,28 +35,39 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertIsNotNone(
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", metadata["version"])
         )
-        self.assertEqual(metadata["version"], "0.3.7")
+        self.assertEqual(metadata["version"], "0.4.0")
         self.assertEqual(metadata["creators"], ["@shimpz"])
         self.assertEqual(metadata["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["network"]["allowed_hosts"], ["api.cloudflare.com"])
         self.assertEqual(
             manifest["integrations"],
-            {"cloudflare": {"scopes": ["zone.read", "dns.read", "offline_access"]}},
+            {"cloudflare": {"scopes": ["zone.read", "dns.read", "dns.write", "offline_access"]}},
         )
 
     def test_each_power_is_one_direct_python_file(self) -> None:
         powers = ROOT / "powers"
         self.assertEqual(
             {path.name for path in powers.iterdir() if path.name != "__pycache__"},
-            {"get_zone.py", "get_dns_record.py", "list_zones.py", "list_dns_records.py"},
+            {
+                "delete_dns_record.py",
+                "ensure_dns_record.py",
+                "get_dns_record.py",
+                "get_zone.py",
+                "list_dns_records.py",
+                "list_zones.py",
+                "replace_dns_record.py",
+            },
         )
         declared_integrations = set(tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["integrations"])
         used_integrations: set[str] = set()
         for module_name in (
+            "powers.delete_dns_record",
+            "powers.ensure_dns_record",
             "powers.get_zone",
             "powers.get_dns_record",
             "powers.list_zones",
             "powers.list_dns_records",
+            "powers.replace_dns_record",
         ):
             with self.subTest(module=module_name):
                 body = importlib.import_module(module_name).run
@@ -67,7 +78,13 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 self.assertIs(context.default, inspect.Parameter.empty)
                 metadata = get_power_metadata(body)
                 self.assertIsInstance(metadata, PowerMetadata)
-                self.assertEqual(metadata.human_requests, ())
+                expected_requests = (
+                    ("approval", "auth:reauth")
+                    if module_name
+                    in {"powers.delete_dns_record", "powers.ensure_dns_record", "powers.replace_dns_record"}
+                    else ()
+                )
+                self.assertEqual(metadata.human_requests, expected_requests)
                 integrations = set(metadata.integrations)
                 self.assertLessEqual(integrations, declared_integrations)
                 used_integrations.update(integrations)

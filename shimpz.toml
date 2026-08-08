@@ -1,22 +1,24 @@
 [shimpz]
 spec = 1
 id = "shimpz-cloudflare"
-version = "0.3.7"
+version = "0.4.0"
 name = "Shimpz Cloudflare"
-summary = "List Cloudflare zones and inspect their DNS records through OAuth."
+summary = "Inspect Cloudflare zones and safely manage common DNS records through OAuth."
 creators = ["@shimpz"]
 github = "https://github.com/TheShimpz/shimpz-cloudflare"
 genesis = """
-Use this Assistant only to inspect Cloudflare zones and DNS records.
+Use this Assistant to inspect Cloudflare zones and to manage reviewed A, AAAA, CNAME, and TXT DNS records.
 
 Call list-zones to discover available zones and get-zone for exact zone details. Call DNS-record Powers only with
 a zone_id returned by list-zones, and get-dns-record only with a record_id returned by list-dns-records. Start with
-page 1 and a small per_page. These Powers are read-only: never claim that a DNS record or zone was changed, and
-never ask the user to paste OAuth credentials.
+page 1 and a small per_page. Use ensure-dns-record to converge on one exact state, replace-dns-record for a complete
+replacement, and delete-dns-record for one exact record. Every mutation must complete its declared approval and
+reauthentication before accessing Cloudflare. Never claim success beyond the returned provider result, silently
+retry an uncertain write, mutate a zone, or ask the user to paste OAuth credentials.
 """
 
 [network]
 allowed_hosts = ["api.cloudflare.com"]
 
 [integrations.cloudflare]
-scopes = ["zone.read", "dns.read", "offline_access"]
+scopes = ["zone.read", "dns.read", "dns.write", "offline_access"]

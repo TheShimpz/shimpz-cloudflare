@@ -1,15 +1,23 @@
 # Shimpz Cloudflare
 
-Read-only Cloudflare Assistant with four bounded Powers:
+Cloudflare Assistant with seven bounded Powers:
 
 - `list-zones` lists Cloudflare zones, including their domain, status, type, and owning account;
 - `get-zone` returns one zone selected by its exact identifier;
 - `list-dns-records` lists DNS records from one exact zone identifier;
-- `get-dns-record` returns one record selected by its exact zone and record identifiers.
+- `get-dns-record` returns one record selected by its exact zone and record identifiers;
+- `ensure-dns-record` returns an existing exact A, AAAA, CNAME, or TXT record or creates it once when absent;
+- `replace-dns-record` replaces one exact record with complete reviewed state;
+- `delete-dns-record` deletes one exact record and reconciles an already absent target.
 
 The Assistant receives a short-lived access token only while one of these Powers runs. It never
-receives the OAuth client secret or refresh token. All four Powers are read-only, require no approval,
-use fixed Cloudflare API paths, reject redirects, and limit response sizes and pagination.
+receives the OAuth client secret or refresh token. Read Powers require no human gate. Every mutation obtains
+attributable approval and fresh Shimpz reauthentication before it can observe the access token. All requests use
+fixed Cloudflare API paths, reject redirects and automatic connection retries, and bound request and response sizes.
+
+The OAuth Integration requests only `zone.read`, `dns.read`, `dns.write`, and `offline_access`. Zones remain
+read-only. DNS writes support only the four closed record shapes above; the Assistant accepts no arbitrary
+Cloudflare endpoint or JSON body.
 
 Each file in `powers/` is one Power. Shared provider code lives in `lib/cloudflare.py`. The Shimpz CLI
 manages Python and the SDK, generates the machine contract in memory, and runs Powers without Docker.

@@ -15,6 +15,7 @@ def _pattern(annotation: object) -> object:
 class AliasParityTests(unittest.TestCase):
     def test_runtime_type_sets_derive_from_literals(self) -> None:
         self.assertEqual(cf._DNS_TYPES, frozenset(get_args(cf.DnsType)))
+        self.assertEqual(cf._WRITABLE_DNS_TYPES, frozenset(get_args(cf.WritableDnsType)))
         self.assertEqual(cf._ZONE_TYPES, frozenset(get_args(cf.ZoneType)))
 
     def test_runtime_patterns_and_schema_metadata_share_constants(self) -> None:
