@@ -184,10 +184,14 @@ class CloudflareApiClient:
                 "per_page": "100",
             },
         )
+        items = _result(payload, 100)
+        pagination = _pagination(payload, 1, 100, len(items))
+        if pagination["total_count"] != len(items) or pagination["total_pages"] > 1:
+            raise CloudflareApiError("Cloudflare DNS record lookup is truncated")
         matches = sorted(
             (
                 record
-                for item in _result(payload, 100)
+                for item in items
                 if _record_matches(record := _dns_record(item), desired)
             ),
             key=lambda record: record["id"],
@@ -238,6 +242,8 @@ class CloudflareApiClient:
         existing = await self._request("GET", path, access_token, {}, absent_ok=True)
         if existing is None:
             return {"record_id": record_id, "deleted": False}
+        if existing.get("success") is not True:
+            raise CloudflareApiError("Cloudflare response is invalid")
         record = _dns_record(_object_result(existing))
         if record["id"] != record_id:
             raise CloudflareApiError("Cloudflare DNS record result is invalid")

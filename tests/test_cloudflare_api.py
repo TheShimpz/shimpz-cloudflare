@@ -85,13 +85,19 @@ class _Session:
         return None
 
 
-def _page(result: list[object]) -> dict[str, object]:
+def _page(result: list[object], *, per_page: int = 25) -> dict[str, object]:
     return {
         "success": True,
         "errors": [],
         "messages": [],
         "result": result,
-        "result_info": {"page": 1, "per_page": 25, "count": len(result), "total_count": len(result), "total_pages": 1},
+        "result_info": {
+            "page": 1,
+            "per_page": per_page,
+            "count": len(result),
+            "total_count": len(result),
+            "total_pages": 1,
+        },
     }
 
 
@@ -292,7 +298,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(kwargs["params"] == {} for _url, kwargs in session.requests))
 
     async def test_ensure_returns_an_exact_existing_record_without_post(self) -> None:
-        session = _Session([_Response(_page([_record()]))])
+        session = _Session([_Response(_page([_record()], per_page=100))])
         client = CloudflareApiClient(session)  # type: ignore[arg-type]
 
         result = await client.ensure_dns_record(
@@ -316,7 +322,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_ensure_creates_an_absent_record_once_with_canonical_json(self) -> None:
         session = _Session(
             [
-                _Response(_page([])),
+                _Response(_page([], per_page=100)),
                 _Response({"success": True, "result": _record()}),
             ]
         )
@@ -339,6 +345,30 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             {"type": "A", "name": "api.shimpz.com", "content": "192.0.2.1", "ttl": 1, "proxied": True},
         )
         self.assertEqual(session.requests[1][1]["headers"]["Content-Type"], "application/json")
+
+    async def test_ensure_refuses_a_truncated_filtered_lookup_before_post(self) -> None:
+        truncated = _page([], per_page=100)
+        truncated["result_info"] = {
+            "page": 1,
+            "per_page": 100,
+            "count": 0,
+            "total_count": 101,
+            "total_pages": 2,
+        }
+        session = _Session([_Response(truncated)])
+
+        with self.assertRaisesRegex(CloudflareApiError, "truncated"):
+            await CloudflareApiClient(session).ensure_dns_record(  # type: ignore[arg-type]
+                ZONE_ID,
+                "A",
+                "api.shimpz.com",
+                "192.0.2.1",
+                1,
+                True,
+                TEST_ACCESS_VALUE,
+            )
+
+        self.assertEqual([kwargs["method"] for _url, kwargs in session.requests], ["GET"])
 
     async def test_replace_uses_full_put_and_rejects_result_drift(self) -> None:
         replacement = _record(record_type="TXT", name="_proof.shimpz.com", content="proof", ttl=300, proxied=False)
@@ -395,6 +425,15 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual([kwargs["method"] for _url, kwargs in existing.requests], ["GET", "DELETE"])
 
+        invalid = _Session([_Response({"success": False, "result": _record()})])
+        with self.assertRaises(CloudflareApiError):
+            await CloudflareApiClient(invalid).delete_dns_record(  # type: ignore[arg-type]
+                ZONE_ID,
+                RECORD_ID,
+                TEST_ACCESS_VALUE,
+            )
+        self.assertEqual([kwargs["method"] for _url, kwargs in invalid.requests], ["GET"])
+
     async def test_write_inputs_are_closed_before_provider_io(self) -> None:
         invalid = (
             ("MX", "mail.shimpz.com", "mailhost.shimpz.com", 300, False),
@@ -421,7 +460,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             (
                 ensure_dns_record,
                 (ZONE_ID, "A", "api.shimpz.com", "192.0.2.1", 1, True),
-                [_Response(_page([_record()]))],
+                [_Response(_page([_record()], per_page=100))],
                 "powers.ensure_dns_record.create_http_session",
                 "GET",
             ),
@@ -463,7 +502,10 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(error) as caught:
                     await client.list_zones(1, 25, TEST_ACCESS_VALUE)
                 self.assertIs(type(caught.exception), error)
-                self.assertNotIn(TEST_ACCESS_VALUE, str(caught.exception))
+                failure: BaseException | None = caught.exception
+                while failure is not None:
+                    self.assertNotIn(TEST_ACCESS_VALUE, str(failure))
+                    failure = failure.__cause__
 
     async def test_reassembles_a_bounded_chunked_provider_response(self) -> None:
         response = _Response(_page([]), chunk_size=7)
