@@ -1,12 +1,14 @@
 # Shimpz Cloudflare
 
-Read-only Cloudflare Assistant with two bounded Powers:
+Read-only Cloudflare Assistant with four bounded Powers:
 
 - `list-zones` lists Cloudflare zones, including their domain, status, type, and owning account;
-- `list-dns-records` lists DNS records from one exact zone identifier.
+- `get-zone` returns one zone selected by its exact identifier;
+- `list-dns-records` lists DNS records from one exact zone identifier;
+- `get-dns-record` returns one record selected by its exact zone and record identifiers.
 
 The Assistant receives a short-lived access token only while one of these Powers runs. It never
-receives the OAuth client secret or refresh token. Both Powers are read-only, require no approval,
+receives the OAuth client secret or refresh token. All four Powers are read-only, require no approval,
 use fixed Cloudflare API paths, reject redirects, and limit response sizes and pagination.
 
 Each file in `powers/` is one Power. Shared provider code lives in `lib/cloudflare.py`. The Shimpz CLI

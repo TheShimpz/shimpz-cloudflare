@@ -12,6 +12,8 @@ from lib.cloudflare import (
     CloudflareApiClient,
     CloudflareApiError,
 )
+from powers.get_dns_record import run as get_dns_record
+from powers.get_zone import run as get_zone
 from powers.list_dns_records import run as list_dns_records
 from powers.list_zones import run as list_zones
 
@@ -87,18 +89,48 @@ def _page(result: list[object]) -> dict[str, object]:
 
 class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_sdk_powers_read_the_invocation_scoped_cloudflare_account(self) -> None:
-        session = _Session([_Response(_page([])), _Response(_page([]))])
+        zone = {
+            "id": ZONE_ID,
+            "name": "shimpz.com",
+            "status": "active",
+            "type": "full",
+            "paused": False,
+            "account": {"id": ACCOUNT_ID, "name": "Shimpz"},
+        }
+        record = {
+            "id": RECORD_ID,
+            "type": "A",
+            "name": "shimpz.com",
+            "content": "192.0.2.1",
+            "ttl": 1,
+            "proxied": True,
+            "proxiable": True,
+        }
+        session = _Session(
+            [
+                _Response(_page([])),
+                _Response({"success": True, "result": zone}),
+                _Response(_page([])),
+                _Response({"success": True, "result": record}),
+            ]
+        )
         context = Context({"cloudflare": TEST_ACCESS_VALUE})
 
         with (
             patch("powers.list_zones.create_http_session", return_value=session),
+            patch("powers.get_zone.create_http_session", return_value=session),
             patch("powers.list_dns_records.create_http_session", return_value=session),
+            patch("powers.get_dns_record.create_http_session", return_value=session),
         ):
             zones = await list_zones(1, 25, ctx=context)
+            selected_zone = await get_zone(ZONE_ID, ctx=context)
             records = await list_dns_records(ZONE_ID, 1, 25, ctx=context)
+            selected_record = await get_dns_record(ZONE_ID, RECORD_ID, ctx=context)
 
         self.assertEqual(zones["zones"], [])
+        self.assertEqual(selected_zone["id"], ZONE_ID)
         self.assertEqual(records["records"], [])
+        self.assertEqual(selected_record["id"], RECORD_ID)
         for _url, kwargs in session.requests:
             self.assertEqual(
                 kwargs["headers"]["Authorization"],
@@ -162,6 +194,46 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(kwargs["headers"]["Accept-Encoding"], "identity")
             self.assertIs(kwargs["allow_redirects"], False)
             self.assertEqual(kwargs["params"]["order"], "name")
+
+    async def test_gets_zone_and_dns_record_through_exact_read_only_endpoints(self) -> None:
+        zone = {
+            "id": ZONE_ID,
+            "name": "shimpz.com",
+            "status": "active",
+            "type": "full",
+            "paused": False,
+            "account": {"id": ACCOUNT_ID, "name": "Shimpz"},
+        }
+        record = {
+            "id": RECORD_ID,
+            "type": "TXT",
+            "name": "_proof.shimpz.com",
+            "content": "proof",
+            "ttl": 300,
+            "proxied": False,
+            "proxiable": False,
+        }
+        session = _Session(
+            [
+                _Response({"success": True, "result": zone}),
+                _Response({"success": True, "result": record}),
+            ]
+        )
+        client = CloudflareApiClient(session)  # type: ignore[arg-type]
+
+        self.assertEqual((await client.get_zone(ZONE_ID, TEST_ACCESS_VALUE))["id"], ZONE_ID)
+        self.assertEqual(
+            (await client.get_dns_record(ZONE_ID, RECORD_ID, TEST_ACCESS_VALUE))["id"],
+            RECORD_ID,
+        )
+        self.assertEqual(
+            [url for url, _kwargs in session.requests],
+            [
+                f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}",
+                f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}/dns_records/{RECORD_ID}",
+            ],
+        )
+        self.assertTrue(all(kwargs["params"] == {} for _url, kwargs in session.requests))
 
     async def test_authentication_and_provider_failures_never_reflect_token(self) -> None:
         for response, error in (

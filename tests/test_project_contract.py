@@ -35,7 +35,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertIsNotNone(
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", metadata["version"])
         )
-        self.assertEqual(metadata["version"], "0.3.6")
+        self.assertEqual(metadata["version"], "0.3.7")
         self.assertEqual(metadata["creators"], ["@shimpz"])
         self.assertEqual(metadata["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["network"]["allowed_hosts"], ["api.cloudflare.com"])
@@ -48,11 +48,16 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         powers = ROOT / "powers"
         self.assertEqual(
             {path.name for path in powers.iterdir() if path.name != "__pycache__"},
-            {"list_zones.py", "list_dns_records.py"},
+            {"get_zone.py", "get_dns_record.py", "list_zones.py", "list_dns_records.py"},
         )
         declared_integrations = set(tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["integrations"])
         used_integrations: set[str] = set()
-        for module_name in ("powers.list_zones", "powers.list_dns_records"):
+        for module_name in (
+            "powers.get_zone",
+            "powers.get_dns_record",
+            "powers.list_zones",
+            "powers.list_dns_records",
+        ):
             with self.subTest(module=module_name):
                 body = importlib.import_module(module_name).run
                 self.assertTrue(inspect.iscoroutinefunction(body))

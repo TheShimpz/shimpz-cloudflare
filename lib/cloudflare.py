@@ -114,6 +114,14 @@ class CloudflareApiClient:
         zones = [_zone(item) for item in _result(payload, per_page)]
         return {"zones": zones, "pagination": _pagination(payload, page, per_page, len(zones))}
 
+    async def get_zone(self, zone_id: str, access_token: str) -> Zone:
+        payload = await self._get(
+            f"/client/v4/zones/{quote(zone_id, safe='')}",
+            access_token,
+            {},
+        )
+        return _zone(_object_result(payload))
+
     async def list_dns_records(
         self,
         zone_id: str,
@@ -128,6 +136,14 @@ class CloudflareApiClient:
         )
         records = [_dns_record(item) for item in _result(payload, per_page)]
         return {"records": records, "pagination": _pagination(payload, page, per_page, len(records))}
+
+    async def get_dns_record(self, zone_id: str, record_id: str, access_token: str) -> DnsRecord:
+        payload = await self._get(
+            f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records/{quote(record_id, safe='')}",
+            access_token,
+            {},
+        )
+        return _dns_record(_object_result(payload))
 
     async def _get(self, path: str, access_token: str, params: Mapping[str, str]) -> dict[str, Any]:
         if not path.startswith("/client/v4/") or "?" in path or "#" in path:
@@ -194,6 +210,13 @@ async def _read_bounded(content: Any) -> bytes:
 def _result(payload: Mapping[str, Any], maximum: int) -> list[Mapping[str, Any]]:
     result = payload.get("result")
     if not isinstance(result, list) or len(result) > maximum or not all(isinstance(item, dict) for item in result):
+        raise CloudflareApiError("Cloudflare result is invalid")
+    return result
+
+
+def _object_result(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    result = payload.get("result")
+    if not isinstance(result, dict):
         raise CloudflareApiError("Cloudflare result is invalid")
     return result
 
