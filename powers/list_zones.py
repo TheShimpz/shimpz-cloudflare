@@ -2,11 +2,11 @@
 
 from shimpz import Context, power
 
-from lib.cloudflare import CloudflareApiClient, Page, PerPage, ZoneResult, create_http_session
+from lib.cloudflare import CloudflareApiClient, Page, ZoneResult, ZonesPerPage, create_http_session
 
 
 @power(integrations=["cloudflare"])
-async def run(page: Page, per_page: PerPage, *, ctx: Context) -> ZoneResult:
+async def run(page: Page, per_page: ZonesPerPage, *, ctx: Context) -> ZoneResult:
     async with create_http_session() as session:
         return await CloudflareApiClient(session).list_zones(
             page,

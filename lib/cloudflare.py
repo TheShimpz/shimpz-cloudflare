@@ -52,6 +52,7 @@ _ZONE_TYPES = frozenset(get_args(ZoneType))
 
 Page = Annotated[int, "Cloudflare result page, starting at 1.", {"minimum": 1, "maximum": 100_000}]
 PerPage = Annotated[int, "Number of results to return, from 1 to 100.", {"minimum": 1, "maximum": 100}]
+ZonesPerPage = Annotated[int, "Number of zones to return, from 5 to 50.", {"minimum": 5, "maximum": 50}]
 CloudflareId = Annotated[str, "The 32-character hexadecimal Cloudflare zone id.", {"pattern": _HEX_ID_PATTERN}]
 ZoneName = Annotated[str, {"minLength": 1, "maxLength": 255}]
 AccountName = Annotated[str, {"minLength": 1, "maxLength": 160}]
@@ -100,7 +101,7 @@ class DnsRecord(TypedDict):
 
 
 class ZoneResult(TypedDict):
-    zones: Annotated[list[Zone], {"maxItems": 100}]
+    zones: Annotated[list[Zone], {"maxItems": 50}]
     pagination: Pagination
 
 
