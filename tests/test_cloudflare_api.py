@@ -503,7 +503,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             ("TXT", "_proof.shimpz.com", "proof", 1, True),
             ("TXT", "_proof.shimpz.com", 'bad"quote', 300, False),
             ("TXT", "_proof.shimpz.com", "bad\\escape", 300, False),
-            ("TXT", "_proof.shimpz.com", "é" * 128, 300, False),
+            ("TXT", "_proof.shimpz.com", "é", 300, False),
             ("A", "api.shimpz.com", "192.0.2.1", 30, False),
             ("A", "api.shimpz.com", "192.0.2.1", 300, True),
         )

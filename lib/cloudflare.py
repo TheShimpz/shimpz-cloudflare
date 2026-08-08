@@ -14,12 +14,13 @@ import aiohttp
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
 MAX_REQUEST_BYTES = 96 * 1024
-MAX_TXT_CHARACTER_STRING_BYTES = 255
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=6, connect=3, sock_connect=3, sock_read=4)
 _HEX_ID_PATTERN = "^[0-9a-f]{32}$"
 _STATUS_PATTERN = "^[a-z][a-z0-9_-]{0,31}$"
+_WRITABLE_CONTENT_PATTERN = r"^[ !#-\[\]-~]+$"
 _HEX_ID = re.compile(_HEX_ID_PATTERN)
 _STATUS = re.compile(_STATUS_PATTERN)
+_WRITABLE_CONTENT = re.compile(_WRITABLE_CONTENT_PATTERN)
 
 ZoneType = Literal["full", "internal", "partial", "secondary"]
 DnsType = Literal[
@@ -63,8 +64,8 @@ WritableDnsTtl = Annotated[int, "Use 1 for automatic TTL or 60–86400 seconds."
 WritableDnsName = Annotated[str, "Complete DNS record name in ASCII or Punycode.", {"minLength": 1, "maxLength": 253}]
 WritableDnsContent = Annotated[
     str,
-    "DNS record content for the selected record type; TXT must be plain unquoted text up to 255 UTF-8 bytes.",
-    {"minLength": 1, "maxLength": 255},
+    "Printable ASCII DNS content; TXT must be plain unquoted text.",
+    {"minLength": 1, "maxLength": 255, "pattern": _WRITABLE_CONTENT_PATTERN},
 ]
 
 
@@ -413,6 +414,8 @@ def _dns_name(value: object) -> str:
 
 def _dns_content(record_type: str, value: object, name: str) -> str:
     content = _text(value, 255)
+    if _WRITABLE_CONTENT.fullmatch(content) is None:
+        raise CloudflareApiError("Cloudflare DNS record content is invalid")
     if record_type == "A":
         try:
             return str(ipaddress.IPv4Address(content))
@@ -428,8 +431,6 @@ def _dns_content(record_type: str, value: object, name: str) -> str:
         if target == name:
             raise CloudflareApiError("Cloudflare DNS record content is invalid")
         return target
-    if '"' in content or "\\" in content or len(content.encode("utf-8")) > MAX_TXT_CHARACTER_STRING_BYTES:
-        raise CloudflareApiError("Cloudflare DNS record content is invalid")
     return f'"{content}"'
 
 

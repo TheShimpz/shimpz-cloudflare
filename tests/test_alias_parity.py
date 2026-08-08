@@ -26,8 +26,10 @@ class AliasParityTests(unittest.TestCase):
     def test_runtime_patterns_and_schema_metadata_share_constants(self) -> None:
         self.assertEqual(cf._HEX_ID.pattern, cf._HEX_ID_PATTERN)
         self.assertEqual(cf._STATUS.pattern, cf._STATUS_PATTERN)
+        self.assertEqual(cf._WRITABLE_CONTENT.pattern, cf._WRITABLE_CONTENT_PATTERN)
         self.assertEqual(_pattern(cf.CloudflareId), cf._HEX_ID_PATTERN)
         self.assertEqual(_pattern(cf.ZoneStatus), cf._STATUS_PATTERN)
+        self.assertEqual(_pattern(cf.WritableDnsContent), cf._WRITABLE_CONTENT_PATTERN)
 
     def test_list_zones_uses_the_provider_exact_page_bounds(self) -> None:
         self.assertEqual(_bounds(cf.ZonesPerPage), {"minimum": 5, "maximum": 50})
