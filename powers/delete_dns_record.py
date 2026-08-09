@@ -13,8 +13,11 @@ async def run(zone_id: CloudflareId, record_id: CloudflareId, *, ctx: Context) -
     )
     ctx.request_auth(
         "reauth",
-        title="Confirm the Cloudflare DNS deletion",
-        description=f"Reauthenticate before permanently deleting record {record_id} from zone {zone_id}.",
+        title="Confirm with your Shimpz Supervisor password",
+        description=(
+            f"Enter your current Shimpz Supervisor password before permanently deleting record {record_id} "
+            f"from zone {zone_id}."
+        ),
     )
     access_token = ctx.integrations.cloudflare.access_token
     async with create_http_session() as session:

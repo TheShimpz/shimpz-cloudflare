@@ -32,8 +32,10 @@ async def run(
     )
     ctx.request_auth(
         "reauth",
-        title="Confirm the Cloudflare DNS replacement",
-        description=f"Reauthenticate before replacing record {record_id} in zone {zone_id}.",
+        title="Confirm with your Shimpz Supervisor password",
+        description=(
+            f"Enter your current Shimpz Supervisor password before replacing record {record_id} in zone {zone_id}."
+        ),
     )
     access_token = ctx.integrations.cloudflare.access_token
     async with create_http_session() as session:

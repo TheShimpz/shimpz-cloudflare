@@ -31,8 +31,11 @@ async def run(
     )
     ctx.request_auth(
         "reauth",
-        title="Confirm the Cloudflare DNS creation",
-        description=f"Reauthenticate before creating the reviewed {record_type} record for {name} if it is absent.",
+        title="Confirm with your Shimpz Supervisor password",
+        description=(
+            f"Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record "
+            f"for {name} if it is absent."
+        ),
     )
     access_token = ctx.integrations.cloudflare.access_token
     async with create_http_session() as session:

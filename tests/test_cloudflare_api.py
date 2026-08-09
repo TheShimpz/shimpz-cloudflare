@@ -134,6 +134,10 @@ class _PowerContext:
         if assurance != "reauth":
             raise AssertionError("unexpected assurance")
         self.assert_public_copy(title, description)
+        if title != "Confirm with your Shimpz Supervisor password":
+            raise AssertionError("reauthentication title does not identify the Shimpz Supervisor password")
+        if not description.startswith("Enter your current Shimpz Supervisor password before "):
+            raise AssertionError("reauthentication description does not identify the Shimpz Supervisor password")
         self.events.append("auth:reauth")
 
     @property
