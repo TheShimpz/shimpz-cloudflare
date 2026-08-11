@@ -35,7 +35,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertIsNotNone(
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", metadata["version"])
         )
-        self.assertEqual(metadata["version"], "0.4.1")
+        self.assertEqual(metadata["version"], "0.4.2")
         self.assertEqual(metadata["creators"], ["@shimpz"])
         self.assertEqual(metadata["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["network"]["allowed_hosts"], ["api.cloudflare.com"])
