@@ -1,11 +1,11 @@
 """List Cloudflare zones."""
 
-from shimpz import Context, power
+from shimpz import Context, action
 
 from lib.cloudflare import CloudflareApiClient, Page, ZoneResult, ZonesPerPage, create_http_session
 
 
-@power(integrations=["cloudflare"])
+@action(integrations=["cloudflare"])
 async def run(page: Page, per_page: ZonesPerPage, *, ctx: Context) -> ZoneResult:
     async with create_http_session() as session:
         return await CloudflareApiClient(session).list_zones(

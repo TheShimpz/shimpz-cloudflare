@@ -8,19 +8,19 @@ from unittest.mock import patch
 
 from shimpz import Context
 
+from actions.delete_dns_record import run as delete_dns_record
+from actions.ensure_dns_record import run as ensure_dns_record
+from actions.get_dns_record import run as get_dns_record
+from actions.get_zone import run as get_zone
+from actions.list_dns_records import run as list_dns_records
+from actions.list_zones import run as list_zones
+from actions.replace_dns_record import run as replace_dns_record
 from lib.cloudflare import (
     MAX_RESPONSE_BYTES,
     CloudflareApiClient,
     CloudflareApiError,
     create_http_session,
 )
-from powers.delete_dns_record import run as delete_dns_record
-from powers.ensure_dns_record import run as ensure_dns_record
-from powers.get_dns_record import run as get_dns_record
-from powers.get_zone import run as get_zone
-from powers.list_dns_records import run as list_dns_records
-from powers.list_zones import run as list_zones
-from powers.replace_dns_record import run as replace_dns_record
 
 ZONE_ID = "a" * 32
 ACCOUNT_ID = "b" * 32
@@ -121,7 +121,7 @@ def _record(
     }
 
 
-class _PowerContext:
+class _ActionContext:
     def __init__(self, events: list[str]) -> None:
         self.events = events
         self.integrations = SimpleNamespace(cloudflare=self)
@@ -152,7 +152,7 @@ class _PowerContext:
 
 
 class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
-    async def test_sdk_powers_read_the_invocation_scoped_cloudflare_account(self) -> None:
+    async def test_sdk_actions_read_the_invocation_scoped_cloudflare_account(self) -> None:
         zone = {
             "id": ZONE_ID,
             "name": "shimpz.com",
@@ -181,10 +181,10 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
         context = Context({"cloudflare": TEST_ACCESS_VALUE})
 
         with (
-            patch("powers.list_zones.create_http_session", return_value=session),
-            patch("powers.get_zone.create_http_session", return_value=session),
-            patch("powers.list_dns_records.create_http_session", return_value=session),
-            patch("powers.get_dns_record.create_http_session", return_value=session),
+            patch("actions.list_zones.create_http_session", return_value=session),
+            patch("actions.get_zone.create_http_session", return_value=session),
+            patch("actions.list_dns_records.create_http_session", return_value=session),
+            patch("actions.get_dns_record.create_http_session", return_value=session),
         ):
             zones = await list_zones(1, 25, ctx=context)
             selected_zone = await get_zone(ZONE_ID, ctx=context)
@@ -521,35 +521,35 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
                 )
             self.assertEqual(session.requests, [])
 
-    async def test_mutation_powers_request_approval_and_reauth_before_token_and_provider(self) -> None:
+    async def test_mutation_actions_request_approval_and_reauth_before_token_and_provider(self) -> None:
         scenarios = (
             (
                 ensure_dns_record,
                 (ZONE_ID, "A", "api.shimpz.com", "192.0.2.1", 1, True),
                 [_Response(_page([_record()], per_page=100))],
-                "powers.ensure_dns_record.create_http_session",
+                "actions.ensure_dns_record.create_http_session",
                 "GET",
             ),
             (
                 replace_dns_record,
                 (ZONE_ID, RECORD_ID, "A", "api.shimpz.com", "192.0.2.1", 1, True),
                 [_Response({"success": True, "result": _record()})],
-                "powers.replace_dns_record.create_http_session",
+                "actions.replace_dns_record.create_http_session",
                 "PUT",
             ),
             (
                 delete_dns_record,
                 (ZONE_ID, RECORD_ID),
                 [_Response({}, status=404)],
-                "powers.delete_dns_record.create_http_session",
+                "actions.delete_dns_record.create_http_session",
                 "GET",
             ),
         )
-        for power_body, arguments, responses, session_patch, provider_method in scenarios:
+        for action_body, arguments, responses, session_patch, provider_method in scenarios:
             events: list[str] = []
             session = _Session(responses, events)
-            with self.subTest(power=power_body.__module__), patch(session_patch, return_value=session):
-                await power_body(*arguments, ctx=_PowerContext(events))  # type: ignore[arg-type]
+            with self.subTest(action=action_body.__module__), patch(session_patch, return_value=session):
+                await action_body(*arguments, ctx=_ActionContext(events))  # type: ignore[arg-type]
             self.assertEqual(events[:4], ["approval", "auth:reauth", "token", f"provider:{provider_method}"])
 
     async def test_http_session_disables_aiohttp_connection_retries(self) -> None:

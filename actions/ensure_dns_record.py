@@ -1,6 +1,6 @@
 """Ensure one exact Cloudflare DNS record exists."""
 
-from shimpz import Context, power
+from shimpz import Context, action
 
 from lib.cloudflare import (
     CloudflareApiClient,
@@ -14,7 +14,7 @@ from lib.cloudflare import (
 )
 
 
-@power(integrations=["cloudflare"], human_requests=["approval", "auth:reauth"])
+@action(integrations=["cloudflare"], human_requests=["approval", "auth:reauth"])
 async def run(
     zone_id: CloudflareId,
     record_type: WritableDnsType,

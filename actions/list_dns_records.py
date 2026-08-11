@@ -1,11 +1,11 @@
 """List DNS records in one Cloudflare zone."""
 
-from shimpz import Context, power
+from shimpz import Context, action
 
 from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecordResult, Page, PerPage, create_http_session
 
 
-@power(integrations=["cloudflare"])
+@action(integrations=["cloudflare"])
 async def run(zone_id: CloudflareId, page: Page, per_page: PerPage, *, ctx: Context) -> DnsRecordResult:
     async with create_http_session() as session:
         return await CloudflareApiClient(session).list_dns_records(

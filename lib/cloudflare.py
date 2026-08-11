@@ -122,7 +122,7 @@ class DeleteDnsRecordResult(TypedDict):
 
 
 class CloudflareApiError(RuntimeError):
-    """Cloudflare did not satisfy the declared Power contract."""
+    """Cloudflare did not satisfy the declared Action contract."""
 
 
 class CloudflareApiClient:

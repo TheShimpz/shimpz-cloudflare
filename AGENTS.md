@@ -2,13 +2,13 @@
 
 ## Authority
 
-- This repository owns the independently published Shimpz Cloudflare Assistant: its manifest, Genesis, Powers,
+- This repository owns the independently published Shimpz Cloudflare Assistant: its manifest, Genesis, Actions,
   provider client, public result schemas, and component tests.
 - It does not own Cloudflare OAuth-client custody, OAuth callback or token exchange, Team Integration state,
   Assistant publication authority, Team installation, or platform egress enforcement.
 - Read the canonical [Shimpz architecture](https://github.com/TheShimpz/shimpz/blob/main/.context/ARCHITECTURE.md),
   [OAuth control-plane ADR](https://github.com/TheShimpz/shimpz/blob/main/.context/decisions/0010-oauth-integration-control-plane.md),
-  and [Power human-request ADR](https://github.com/TheShimpz/shimpz/blob/main/.context/decisions/0038-power-human-requests.md)
+  and [Action vocabulary ADR](https://github.com/TheShimpz/shimpz/blob/main/.context/decisions/0044-assistant-actions-and-human-request-presentation.md)
   before changing Integration scopes, externally visible actions, credentials, or human authority.
 
 ## Delivery
@@ -20,7 +20,7 @@
 
 ## Engineering
 
-- Keep every Power bounded, least-privilege, fail-closed, and limited to fixed Cloudflare API paths.
+- Keep every Action bounded, least-privilege, fail-closed, and limited to fixed Cloudflare API paths.
 - Never receive an OAuth client secret or refresh token, choose OAuth endpoints, process callbacks, or persist an
   access token. Read the invocation-scoped access token only after every human request has completed.
 - Reject redirects, oversized or malformed provider responses, undeclared fields that widen an operation, and any

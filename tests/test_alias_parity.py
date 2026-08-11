@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from typing import get_args, get_type_hints
 
+from actions.list_zones import run as list_zones
 from lib import cloudflare as cf
-from powers.list_zones import run as list_zones
 
 
 def _pattern(annotation: object) -> object:

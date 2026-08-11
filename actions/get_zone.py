@@ -1,11 +1,11 @@
 """Get one Cloudflare zone by its exact identifier."""
 
-from shimpz import Context, power
+from shimpz import Context, action
 
 from lib.cloudflare import CloudflareApiClient, CloudflareId, Zone, create_http_session
 
 
-@power(integrations=["cloudflare"])
+@action(integrations=["cloudflare"])
 async def run(zone_id: CloudflareId, *, ctx: Context) -> Zone:
     async with create_http_session() as session:
         return await CloudflareApiClient(session).get_zone(

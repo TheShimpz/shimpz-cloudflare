@@ -7,7 +7,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
-from shimpz.power import PowerMetadata, get_power_metadata
+from shimpz.action import ActionMetadata, get_action_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,10 +44,10 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
             {"cloudflare": {"scopes": ["zone.read", "dns.read", "dns.write", "offline_access"]}},
         )
 
-    def test_each_power_is_one_direct_python_file(self) -> None:
-        powers = ROOT / "powers"
+    def test_each_action_is_one_direct_python_file(self) -> None:
+        actions = ROOT / "actions"
         self.assertEqual(
-            {path.name for path in powers.iterdir() if path.name != "__pycache__"},
+            {path.name for path in actions.iterdir() if path.name != "__pycache__"},
             {
                 "delete_dns_record.py",
                 "ensure_dns_record.py",
@@ -61,13 +61,13 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         declared_integrations = set(tomllib.loads((ROOT / "shimpz.toml").read_text(encoding="utf-8"))["integrations"])
         used_integrations: set[str] = set()
         for module_name in (
-            "powers.delete_dns_record",
-            "powers.ensure_dns_record",
-            "powers.get_zone",
-            "powers.get_dns_record",
-            "powers.list_zones",
-            "powers.list_dns_records",
-            "powers.replace_dns_record",
+            "actions.delete_dns_record",
+            "actions.ensure_dns_record",
+            "actions.get_zone",
+            "actions.get_dns_record",
+            "actions.list_zones",
+            "actions.list_dns_records",
+            "actions.replace_dns_record",
         ):
             with self.subTest(module=module_name):
                 body = importlib.import_module(module_name).run
@@ -76,12 +76,12 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 context = inspect.signature(body).parameters["ctx"]
                 self.assertEqual(context.kind, inspect.Parameter.KEYWORD_ONLY)
                 self.assertIs(context.default, inspect.Parameter.empty)
-                metadata = get_power_metadata(body)
-                self.assertIsInstance(metadata, PowerMetadata)
+                metadata = get_action_metadata(body)
+                self.assertIsInstance(metadata, ActionMetadata)
                 expected_requests = (
                     ("approval", "auth:reauth")
                     if module_name
-                    in {"powers.delete_dns_record", "powers.ensure_dns_record", "powers.replace_dns_record"}
+                    in {"actions.delete_dns_record", "actions.ensure_dns_record", "actions.replace_dns_record"}
                     else ()
                 )
                 self.assertEqual(metadata.human_requests, expected_requests)
