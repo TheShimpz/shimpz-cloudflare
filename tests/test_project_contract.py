@@ -35,7 +35,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         self.assertIsNotNone(
             re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", metadata["version"])
         )
-        self.assertEqual(metadata["version"], "0.4.2")
+        self.assertEqual(metadata["version"], "0.4.3")
         self.assertEqual(metadata["creators"], ["@shimpz"])
         self.assertEqual(metadata["github"], "https://github.com/TheShimpz/shimpz-cloudflare")
         self.assertEqual(manifest["network"]["allowed_hosts"], ["api.cloudflare.com"])
@@ -79,7 +79,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 metadata = get_action_metadata(body)
                 self.assertIsInstance(metadata, ActionMetadata)
                 expected_requests = (
-                    ("approval", "auth:reauth")
+                    ("auth:password",)
                     if module_name
                     in {"actions.delete_dns_record", "actions.ensure_dns_record", "actions.replace_dns_record"}
                     else ()

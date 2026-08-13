@@ -12,7 +12,7 @@ Cloudflare Assistant with seven bounded Actions:
 
 The Assistant receives a short-lived access token only while one of these Actions runs. It never
 receives the OAuth client secret or refresh token. Read Actions require no human gate. Every mutation obtains
-attributable approval and fresh Shimpz reauthentication before it can observe the access token. All requests use
+one attributable Shimpz password authorization before it can observe the access token. All requests use
 fixed Cloudflare API paths, reject redirects and automatic connection retries, and bound request and response sizes.
 
 The OAuth Integration requests only `zone.read`, `dns.read`, `dns.write`, and `offline_access`. Zones remain

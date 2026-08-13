@@ -14,7 +14,7 @@ from lib.cloudflare import (
 )
 
 
-@action(integrations=["cloudflare"], human_requests=["approval", "auth:reauth"])
+@action(integrations=["cloudflare"], human_requests=["auth:password"])
 async def run(
     zone_id: CloudflareId,
     record_type: WritableDnsType,
@@ -25,12 +25,8 @@ async def run(
     *,
     ctx: Context,
 ) -> EnsureDnsRecordResult:
-    ctx.request_approval(
-        title="Ensure this Cloudflare DNS record?",
-        description=f"Ensure the reviewed {record_type} record for {name} exists in zone {zone_id}.",
-    )
     ctx.request_auth(
-        "reauth",
+        "password",
         title="Confirm with your Shimpz Supervisor password",
         description=(
             f"Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record "

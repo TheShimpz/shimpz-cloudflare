@@ -14,7 +14,7 @@ from lib.cloudflare import (
 )
 
 
-@action(integrations=["cloudflare"], human_requests=["approval", "auth:reauth"])
+@action(integrations=["cloudflare"], human_requests=["auth:password"])
 async def run(
     zone_id: CloudflareId,
     record_id: CloudflareId,
@@ -26,12 +26,8 @@ async def run(
     *,
     ctx: Context,
 ) -> DnsRecord:
-    ctx.request_approval(
-        title="Replace this Cloudflare DNS record?",
-        description=f"Replace record {record_id} with the reviewed {record_type} state for {name} in zone {zone_id}.",
-    )
     ctx.request_auth(
-        "reauth",
+        "password",
         title="Confirm with your Shimpz Supervisor password",
         description=(
             f"Enter your current Shimpz Supervisor password before replacing record {record_id} in zone {zone_id}."

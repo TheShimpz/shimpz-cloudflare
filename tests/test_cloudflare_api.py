@@ -126,19 +126,15 @@ class _ActionContext:
         self.events = events
         self.integrations = SimpleNamespace(cloudflare=self)
 
-    def request_approval(self, *, title: str, description: str) -> None:
-        self.assert_public_copy(title, description)
-        self.events.append("approval")
-
-    def request_auth(self, assurance: str, *, title: str, description: str) -> None:
-        if assurance != "reauth":
-            raise AssertionError("unexpected assurance")
+    def request_auth(self, authentication: str, *, title: str, description: str) -> None:
+        if authentication != "password":
+            raise AssertionError("unexpected authentication mechanism")
         self.assert_public_copy(title, description)
         if title != "Confirm with your Shimpz Supervisor password":
-            raise AssertionError("reauthentication title does not identify the Shimpz Supervisor password")
+            raise AssertionError("authentication title does not identify the Shimpz Supervisor password")
         if not description.startswith("Enter your current Shimpz Supervisor password before "):
-            raise AssertionError("reauthentication description does not identify the Shimpz Supervisor password")
-        self.events.append("auth:reauth")
+            raise AssertionError("authentication description does not identify the Shimpz Supervisor password")
+        self.events.append("auth:password")
 
     @property
     def access_token(self) -> str:
@@ -521,7 +517,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
                 )
             self.assertEqual(session.requests, [])
 
-    async def test_mutation_actions_request_approval_and_reauth_before_token_and_provider(self) -> None:
+    async def test_mutation_actions_request_password_authorization_before_token_and_provider(self) -> None:
         scenarios = (
             (
                 ensure_dns_record,
@@ -550,7 +546,7 @@ class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):
             session = _Session(responses, events)
             with self.subTest(action=action_body.__module__), patch(session_patch, return_value=session):
                 await action_body(*arguments, ctx=_ActionContext(events))  # type: ignore[arg-type]
-            self.assertEqual(events[:4], ["approval", "auth:reauth", "token", f"provider:{provider_method}"])
+            self.assertEqual(events[:3], ["auth:password", "token", f"provider:{provider_method}"])
 
     async def test_http_session_disables_aiohttp_connection_retries(self) -> None:
         session = create_http_session()

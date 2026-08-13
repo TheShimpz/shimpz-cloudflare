@@ -5,14 +5,10 @@ from shimpz import Context, action
 from lib.cloudflare import CloudflareApiClient, CloudflareId, DeleteDnsRecordResult, create_http_session
 
 
-@action(integrations=["cloudflare"], human_requests=["approval", "auth:reauth"])
+@action(integrations=["cloudflare"], human_requests=["auth:password"])
 async def run(zone_id: CloudflareId, record_id: CloudflareId, *, ctx: Context) -> DeleteDnsRecordResult:
-    ctx.request_approval(
-        title="Delete this Cloudflare DNS record?",
-        description=f"Permanently delete record {record_id} from zone {zone_id} if it still exists.",
-    )
     ctx.request_auth(
-        "reauth",
+        "password",
         title="Confirm with your Shimpz Supervisor password",
         description=(
             f"Enter your current Shimpz Supervisor password before permanently deleting record {record_id} "
