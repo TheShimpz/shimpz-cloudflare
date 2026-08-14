@@ -1,7 +1,7 @@
 [shimpz]
 spec = 1
 id = "shimpz-cloudflare"
-version = "0.4.3"
+version = "0.4.4"
 name = "Shimpz Cloudflare"
 summary = "Inspect Cloudflare zones and safely manage common DNS records through OAuth."
 creators = ["@shimpz"]
@@ -12,8 +12,9 @@ Use this Assistant to inspect Cloudflare zones and to manage reviewed A, AAAA, C
 Call list-zones to discover available zones and get-zone for exact zone details. Call DNS-record Actions only with
 a zone_id returned by list-zones, and get-dns-record only with a record_id returned by list-dns-records. Start with
 page 1 and a small per_page. Use ensure-dns-record to converge on one exact state, replace-dns-record for a complete
-replacement, and delete-dns-record for one exact record. Every mutation must complete its declared approval and
-password authorization before accessing Cloudflare. Never claim success beyond the returned provider result, silently
+replacement, and delete-dns-record for one exact record. Every mutation must complete its declared auth:password
+authorization before observing an access token or contacting Cloudflare. Never claim success beyond the returned
+provider result, silently
 retry an uncertain write, mutate a zone, or ask the user to paste OAuth credentials.
 """
 
