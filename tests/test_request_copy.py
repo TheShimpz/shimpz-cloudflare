@@ -52,7 +52,7 @@ class RequestCopyTests(unittest.TestCase):
         catalog = _bridge("catalog", str(ROOT))
 
         descriptions = [message for message in catalog["messages"] if message["msgid"].startswith(PREFIX)]
-        self.assertEqual(len(descriptions), 5)
+        self.assertEqual(len(descriptions), 3)
         for message in catalog["messages"]:
             with self.subTest(msgid=message["msgid"]):
                 self.assertEqual(message["id"], hashlib.sha256(message["msgid"].encode()).hexdigest())
@@ -61,6 +61,8 @@ class RequestCopyTests(unittest.TestCase):
                     self.assertEqual(kinds[name], ("identifier", 32))
                 if "record_type" in kinds:
                     self.assertEqual(kinds["record_type"], ("identifier", 5))
+                if "name" in kinds:
+                    self.assertEqual(kinds["name"], ("dns_name", 253))
 
     def test_ids_are_identifier_parameters_of_delete_and_replace(self) -> None:
         replace_input = {**_ensure_input("api.shimpz.com", "A"), "record_id": RECORD_ID, "content": "192.0.2.1"}
@@ -78,18 +80,16 @@ class RequestCopyTests(unittest.TestCase):
                 self.assertIn(f"zone {ZONE_ID}.", rendered["description"])
                 self.assertEqual(rendered["fingerprint"], request["fingerprint"])
 
-    def test_ensure_shows_a_name_only_through_an_admitted_parameter_kind(self) -> None:
-        long_name = ".".join(["a_" + "x" * 60, "y" * 63, "shimpz.com"])
-        for name, record_type, params, shown in (
-            ("api.shimpz.com", "A", {"name": "api.shimpz.com", "record_type": "A"}, "for api.shimpz.com"),
-            (
-                "s1._domainkey.shimpz.com",
-                "TXT",
-                {"name": "s1._domainkey.shimpz.com", "record_type": "TXT"},
-                "named s1._domainkey.shimpz.com",
-            ),
-            ("_proof.shimpz.com", "TXT", {"record_type": "TXT", "zone_id": ZONE_ID}, f"in zone {ZONE_ID}"),
-            (long_name, "TXT", {"record_type": "TXT", "zone_id": ZONE_ID}, f"in zone {ZONE_ID}"),
+    def test_ensure_always_shows_the_exact_record_name(self) -> None:
+        longest = ".".join(["a_" + "x" * 61, "y" * 63, "z" * 63, "_" + "w" * 60])
+        self.assertEqual(len(longest), 253)
+        for name, record_type in (
+            ("api.shimpz.com", "A"),
+            ("s1._domainkey.shimpz.com", "TXT"),
+            ("_acme-challenge.shimpz.com", "TXT"),
+            ("_dmarc.shimpz.com", "TXT"),
+            ("_dmarc", "TXT"),
+            (longest, "TXT"),
         ):
             with self.subTest(name=name):
                 content = "192.0.2.1" if record_type == "A" else "proof"
@@ -97,13 +97,15 @@ class RequestCopyTests(unittest.TestCase):
                     "ensure-dns-record", {**_ensure_input(name, record_type), "content": content}
                 )
 
-                self.assertEqual(request["description"]["params"], params)
-                self.assertIn(f"reviewed {record_type} record {shown}", rendered["description"])
-                if "name" not in params:
-                    self.assertNotIn(name, rendered["description"])
+                self.assertEqual(request["description"]["params"], {"name": name, "record_type": record_type})
+                self.assertEqual(
+                    rendered["description"],
+                    f"{PREFIX}creating the reviewed {record_type} record {name} if it is absent.",
+                )
+                self.assertEqual(rendered["fingerprint"], request["fingerprint"])
 
     def test_ensure_refuses_a_name_the_write_would_refuse_before_asking(self) -> None:
-        for name in ("Api.shimpz.com", "api..shimpz.com", "*.shimpz.com"):
+        for name in ("Api.shimpz.com", "api..shimpz.com", "*.shimpz.com", "-api.shimpz.com", "shimpz.com."):
             with self.subTest(name=name), self.assertRaises(RuntimeError):
                 _bridge(
                     "invoke",

@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal, TypedDict, get_args
 from urllib.parse import quote
 
 import aiohttp
-from shimpz import Text, domain, identifier, text
+from shimpz import Text, dns_name, identifier, text
 
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
@@ -22,9 +22,6 @@ _WRITABLE_CONTENT_PATTERN = r"^[ !#-\[\]-~]+$"
 _HEX_ID = re.compile(_HEX_ID_PATTERN)
 _STATUS = re.compile(_STATUS_PATTERN)
 _WRITABLE_CONTENT = re.compile(_WRITABLE_CONTENT_PATTERN)
-# The lexical forms Team admits for the domain and identifier request-copy parameter kinds (ADR-0091).
-_COPY_DOMAIN = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
-_COPY_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 
 ZoneType = Literal["full", "internal", "partial", "secondary"]
 DnsType = Literal[
@@ -403,37 +400,18 @@ def _write_record(record_type: str, name: str, content: str, ttl: int, proxied: 
 
 
 def ensure_authorization_description(zone_id: str, record_type: str, name: str) -> Text:
-    """Return the scope an ensure authorization covers, refusing a record type or name the write would refuse.
+    """Return the scope an ensure authorization covers, refusing a zone, record type, or name the write would refuse.
 
-    A name is shown as a domain parameter only when it is a plain hostname and as an identifier only when it starts
-    with a letter or digit within 128 characters. Request parameters never carry other text, so a valid name outside
-    both forms, such as an underscore service label, is described without being shown.
+    Every name the write admits is an exact DNS name, so the prompt always shows it as a ``dns_name`` parameter,
+    including underscore service labels such as ``_acme-challenge.example.com`` and names of up to 253 characters.
     """
-    zone = _id(zone_id)
-    record_kind = _enum(record_type, _WRITABLE_DNS_TYPES)
-    record_name = _dns_name(name)
-    if _COPY_DOMAIN.fullmatch(record_name) is not None:
-        return text(
-            "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record "
-            "for {name} if it is absent.",
-            max_length=500,
-            record_type=identifier(record_kind, max_length=5),
-            name=domain(record_name, max_length=253),
-        )
-    if _COPY_IDENTIFIER.fullmatch(record_name) is not None:
-        return text(
-            "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record "
-            "named {name} if it is absent.",
-            max_length=500,
-            record_type=identifier(record_kind, max_length=5),
-            name=identifier(record_name, max_length=128),
-        )
+    _id(zone_id)
     return text(
-        "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record in zone "
-        "{zone_id} if it is absent. Its name starts with an underscore or is too long to show here.",
+        "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record {name} "
+        "if it is absent.",
         max_length=500,
-        record_type=identifier(record_kind, max_length=5),
-        zone_id=identifier(zone, max_length=32),
+        record_type=identifier(_enum(record_type, _WRITABLE_DNS_TYPES), max_length=5),
+        name=dns_name(_dns_name(name), max_length=253),
     )
 
 
