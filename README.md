@@ -19,6 +19,12 @@ The OAuth Integration requests only `zone.read`, `dns.read`, `dns.write`, and `o
 read-only. DNS writes support only the four closed record shapes above; the Assistant accepts no arbitrary
 Cloudflare endpoint or JSON body.
 
+Every authorization prompt is English `shimpz.text` catalog copy that Team shows in the person's interface
+language. Zone and record ids, the record type, and a record name that is a plain hostname or starts with a letter
+or digit within 128 characters appear as typed parameters; any other valid name, such as an underscore service
+label, is described by its zone instead. This version requires SDK 0.5.0 and a CLI with `shimpz assistant prepare`;
+neither is released yet.
+
 Each file in `actions/` is one Action. Shared provider code lives in `lib/cloudflare.py`. The Shimpz CLI
 manages Python and the SDK, generates the machine contract in memory, and runs Actions without Docker.
 
@@ -31,4 +37,11 @@ provider integration and does not imply Cloudflare endorsement of this Assistant
 
 ```console
 shimpz check
+```
+
+To try it on Local, prepare the language pack for the current messages and stage the snapshot:
+
+```console
+shimpz assistant prepare
+shimpz assistant stage
 ```
