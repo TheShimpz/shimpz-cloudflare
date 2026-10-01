@@ -36,7 +36,7 @@ provider integration and does not imply Cloudflare endorsement of this Assistant
 ## Local checks
 
 ```console
-shimpz check
+shimpz assistant check
 ```
 
 To try it on Local, prepare the language pack for the current messages and stage the snapshot:

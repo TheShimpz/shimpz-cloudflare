@@ -34,7 +34,7 @@
 
 ## Validation
 
-- Run `shimpz check` for the complete Assistant contract and component suite.
+- Run `shimpz assistant check` for the complete Assistant contract and component suite.
 - Run `.venv/bin/ruff check --config pyproject.toml .` after changing Python.
 - Prefer focused unit tests while iterating, but do not claim provider behavior without the required real OAuth and
   least-privilege API proof.
