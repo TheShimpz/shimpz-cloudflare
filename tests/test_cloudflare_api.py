@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-from shimpz import Context
+from shimpz import Context, Text
 
 from actions.delete_dns_record import run as delete_dns_record
 from actions.ensure_dns_record import run as ensure_dns_record
@@ -126,13 +126,15 @@ class _ActionContext:
         self.events = events
         self.integrations = SimpleNamespace(cloudflare=self)
 
-    def request_auth(self, authentication: str, *, title: str, description: str) -> None:
+    def request_auth(self, authentication: str, *, title: Text, description: Text) -> None:
         if authentication != "password":
             raise AssertionError("unexpected authentication mechanism")
+        if not isinstance(title, Text) or not isinstance(description, Text):
+            raise AssertionError("authentication copy is not catalog copy")
         self.assert_public_copy(title, description)
-        if title != "Confirm with your Shimpz Supervisor password":
+        if title.template != "Confirm with your Shimpz Supervisor password":
             raise AssertionError("authentication title does not identify the Shimpz Supervisor password")
-        if not description.startswith("Enter your current Shimpz Supervisor password before "):
+        if not description.template.startswith("Enter your current Shimpz Supervisor password before "):
             raise AssertionError("authentication description does not identify the Shimpz Supervisor password")
         self.events.append("auth:password")
 
@@ -142,9 +144,11 @@ class _ActionContext:
         return TEST_ACCESS_VALUE
 
     @staticmethod
-    def assert_public_copy(title: str, description: str) -> None:
-        if TEST_ACCESS_VALUE in title or TEST_ACCESS_VALUE in description:
-            raise AssertionError("token leaked into request copy")
+    def assert_public_copy(*copies: Text) -> None:
+        for copy in copies:
+            values = [copy.template, *(str(param.value) for _name, param in copy.params)]
+            if any(TEST_ACCESS_VALUE in value for value in values):
+                raise AssertionError("token leaked into request copy")
 
 
 class CloudflareApiClientTests(unittest.IsolatedAsyncioTestCase):

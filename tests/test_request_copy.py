@@ -1,0 +1,121 @@
+"""Mutation authorizations are declared catalog copy whose parameters Team can admit and render."""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import unittest
+from pathlib import Path
+
+from shimpz._bridge import dispatch
+
+ROOT = Path(__file__).resolve().parents[1]
+ZONE_ID = "a" * 32
+RECORD_ID = "c" * 32
+TITLE = "Confirm with your Shimpz Supervisor password"
+PREFIX = "Enter your current Shimpz Supervisor password before "
+
+
+def _bridge(*arguments: str, payload: object | None = None) -> dict[str, object]:
+    """Call the bridge the CLI uses for `shimpz assistant run` and its English rendering."""
+    source = io.StringIO("" if payload is None else json.dumps(payload))
+    return json.loads(dispatch(list(arguments), source))
+
+
+def _request(action: str, action_input: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
+    outcome = _bridge(
+        "invoke",
+        str(ROOT),
+        action,
+        payload={"input": action_input, "integrations": {"cloudflare": "unused"}, "stored_inputs": {}},
+    )
+    if outcome["type"] != "request":
+        raise AssertionError("the Action did not request authorization first")
+    request = outcome["request"]
+    return request, _bridge("render", str(ROOT), payload={"request": request})
+
+
+def _ensure_input(name: str, record_type: str = "TXT") -> dict[str, object]:
+    return {
+        "zone_id": ZONE_ID,
+        "record_type": record_type,
+        "name": name,
+        "content": "proof",
+        "ttl": 1,
+        "proxied": False,
+    }
+
+
+class RequestCopyTests(unittest.TestCase):
+    def test_catalog_declares_every_authorization_message_with_typed_parameters(self) -> None:
+        catalog = _bridge("catalog", str(ROOT))
+
+        descriptions = [message for message in catalog["messages"] if message["msgid"].startswith(PREFIX)]
+        self.assertEqual(len(descriptions), 5)
+        for message in catalog["messages"]:
+            with self.subTest(msgid=message["msgid"]):
+                self.assertEqual(message["id"], hashlib.sha256(message["msgid"].encode()).hexdigest())
+                kinds = {param["name"]: (param["kind"], param["max_length"]) for param in message["params"]}
+                for name in {"zone_id", "record_id"} & set(kinds):
+                    self.assertEqual(kinds[name], ("identifier", 32))
+                if "record_type" in kinds:
+                    self.assertEqual(kinds["record_type"], ("identifier", 5))
+
+    def test_ids_are_identifier_parameters_of_delete_and_replace(self) -> None:
+        replace_input = {**_ensure_input("api.shimpz.com", "A"), "record_id": RECORD_ID, "content": "192.0.2.1"}
+        for action, action_input, verb in (
+            ("delete-dns-record", {"zone_id": ZONE_ID, "record_id": RECORD_ID}, "permanently deleting"),
+            ("replace-dns-record", replace_input, "replacing"),
+        ):
+            with self.subTest(action=action):
+                request, rendered = _request(action, action_input)
+
+                self.assertEqual(request["kind"], "auth:password")
+                self.assertEqual(request["description"]["params"], {"record_id": RECORD_ID, "zone_id": ZONE_ID})
+                self.assertEqual(rendered["title"], TITLE)
+                self.assertTrue(rendered["description"].startswith(f"{PREFIX}{verb} record {RECORD_ID}"))
+                self.assertIn(f"zone {ZONE_ID}.", rendered["description"])
+                self.assertEqual(rendered["fingerprint"], request["fingerprint"])
+
+    def test_ensure_shows_a_name_only_through_an_admitted_parameter_kind(self) -> None:
+        long_name = ".".join(["a_" + "x" * 60, "y" * 63, "shimpz.com"])
+        for name, record_type, params, shown in (
+            ("api.shimpz.com", "A", {"name": "api.shimpz.com", "record_type": "A"}, "for api.shimpz.com"),
+            (
+                "s1._domainkey.shimpz.com",
+                "TXT",
+                {"name": "s1._domainkey.shimpz.com", "record_type": "TXT"},
+                "named s1._domainkey.shimpz.com",
+            ),
+            ("_proof.shimpz.com", "TXT", {"record_type": "TXT", "zone_id": ZONE_ID}, f"in zone {ZONE_ID}"),
+            (long_name, "TXT", {"record_type": "TXT", "zone_id": ZONE_ID}, f"in zone {ZONE_ID}"),
+        ):
+            with self.subTest(name=name):
+                content = "192.0.2.1" if record_type == "A" else "proof"
+                request, rendered = _request(
+                    "ensure-dns-record", {**_ensure_input(name, record_type), "content": content}
+                )
+
+                self.assertEqual(request["description"]["params"], params)
+                self.assertIn(f"reviewed {record_type} record {shown}", rendered["description"])
+                if "name" not in params:
+                    self.assertNotIn(name, rendered["description"])
+
+    def test_ensure_refuses_a_name_the_write_would_refuse_before_asking(self) -> None:
+        for name in ("Api.shimpz.com", "api..shimpz.com", "*.shimpz.com"):
+            with self.subTest(name=name), self.assertRaises(RuntimeError):
+                _bridge(
+                    "invoke",
+                    str(ROOT),
+                    "ensure-dns-record",
+                    payload={
+                        "input": _ensure_input(name),
+                        "integrations": {"cloudflare": "unused"},
+                        "stored_inputs": {},
+                    },
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal, TypedDict, get_args
 from urllib.parse import quote
 
 import aiohttp
+from shimpz import Text, domain, identifier, text
 
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
@@ -21,6 +22,9 @@ _WRITABLE_CONTENT_PATTERN = r"^[ !#-\[\]-~]+$"
 _HEX_ID = re.compile(_HEX_ID_PATTERN)
 _STATUS = re.compile(_STATUS_PATTERN)
 _WRITABLE_CONTENT = re.compile(_WRITABLE_CONTENT_PATTERN)
+# The lexical forms Team admits for the domain and identifier request-copy parameter kinds (ADR-0091).
+_COPY_DOMAIN = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+_COPY_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 
 ZoneType = Literal["full", "internal", "partial", "secondary"]
 DnsType = Literal[
@@ -396,6 +400,41 @@ def _write_record(record_type: str, name: str, content: str, ttl: int, proxied: 
         "ttl": ttl,
         "proxied": proxied,
     }
+
+
+def ensure_authorization_description(zone_id: str, record_type: str, name: str) -> Text:
+    """Return the scope an ensure authorization covers, refusing a record type or name the write would refuse.
+
+    A name is shown as a domain parameter only when it is a plain hostname and as an identifier only when it starts
+    with a letter or digit within 128 characters. Request parameters never carry other text, so a valid name outside
+    both forms, such as an underscore service label, is described without being shown.
+    """
+    zone = _id(zone_id)
+    record_kind = _enum(record_type, _WRITABLE_DNS_TYPES)
+    record_name = _dns_name(name)
+    if _COPY_DOMAIN.fullmatch(record_name) is not None:
+        return text(
+            "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record "
+            "for {name} if it is absent.",
+            max_length=500,
+            record_type=identifier(record_kind, max_length=5),
+            name=domain(record_name, max_length=253),
+        )
+    if _COPY_IDENTIFIER.fullmatch(record_name) is not None:
+        return text(
+            "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record "
+            "named {name} if it is absent.",
+            max_length=500,
+            record_type=identifier(record_kind, max_length=5),
+            name=identifier(record_name, max_length=128),
+        )
+    return text(
+        "Enter your current Shimpz Supervisor password before creating the reviewed {record_type} record in zone "
+        "{zone_id} if it is absent. Its name starts with an underscore or is too long to show here.",
+        max_length=500,
+        record_type=identifier(record_kind, max_length=5),
+        zone_id=identifier(zone, max_length=32),
+    )
 
 
 def _dns_name(value: object) -> str:
