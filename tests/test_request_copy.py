@@ -15,6 +15,7 @@ ZONE_ID = "a" * 32
 RECORD_ID = "c" * 32
 TITLE = "Confirm with your Shimpz Supervisor password"
 PREFIX = "Enter your current Shimpz Supervisor password before "
+OPERATION_ID = "0b1f6c1e-3d6a-4f7e-9a2b-5c8d7e6f1a20"
 
 
 def _bridge(*arguments: str, payload: object | None = None) -> dict[str, object]:
@@ -23,12 +24,22 @@ def _bridge(*arguments: str, payload: object | None = None) -> dict[str, object]
     return json.loads(dispatch(list(arguments), source))
 
 
+def _invocation(action_input: dict[str, object]) -> dict[str, object]:
+    return {
+        "input": action_input,
+        "integrations": {"cloudflare": "unused"},
+        "stored_inputs": {},
+        "files": {},
+        "operation_id": OPERATION_ID,
+    }
+
+
 def _request(action: str, action_input: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
     outcome = _bridge(
         "invoke",
         str(ROOT),
         action,
-        payload={"input": action_input, "integrations": {"cloudflare": "unused"}, "stored_inputs": {}},
+        payload=_invocation(action_input),
     )
     if outcome["type"] != "request":
         raise AssertionError("the Action did not request authorization first")
@@ -106,17 +117,11 @@ class RequestCopyTests(unittest.TestCase):
 
     def test_ensure_refuses_a_name_the_write_would_refuse_before_asking(self) -> None:
         for name in ("Api.shimpz.com", "api..shimpz.com", "*.shimpz.com", "-api.shimpz.com", "shimpz.com."):
-            with self.subTest(name=name), self.assertRaises(RuntimeError):
-                _bridge(
-                    "invoke",
-                    str(ROOT),
-                    "ensure-dns-record",
-                    payload={
-                        "input": _ensure_input(name),
-                        "integrations": {"cloudflare": "unused"},
-                        "stored_inputs": {},
-                    },
-                )
+            with self.subTest(name=name):
+                outcome = _bridge("invoke", str(ROOT), "ensure-dns-record", payload=_invocation(_ensure_input(name)))
+
+                self.assertEqual(outcome["type"], "failure")
+                self.assertEqual(outcome["failure"]["error_type"], "lib.cloudflare.CloudflareApiError")
 
 
 if __name__ == "__main__":
