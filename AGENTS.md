@@ -1,8 +1,8 @@
-# Shimpz Cloudflare repository rules
+# Cloudflare Assistant repository rules
 
 ## Authority
 
-- This repository owns the independently published Shimpz Cloudflare Assistant: its manifest, Genesis, Actions,
+- This repository owns the independently published Cloudflare Assistant: its manifest, Genesis, Actions,
   provider client, public result schemas, and component tests.
 - It does not own Cloudflare OAuth-client custody, OAuth callback or token exchange, Team Integration state,
   Assistant publication authority, Team installation, or platform egress enforcement.

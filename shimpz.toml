@@ -2,7 +2,7 @@
 spec = 1
 id = "shimpz-cloudflare"
 version = "0.5.0"
-name = "Shimpz Cloudflare"
+name = "Cloudflare"
 summary = "Inspect Cloudflare zones and safely manage common DNS records through OAuth."
 creators = ["@shimpz"]
 github = "https://github.com/TheShimpz/shimpz-cloudflare"

@@ -1,4 +1,4 @@
-# Shimpz Cloudflare
+# Cloudflare
 
 Cloudflare Assistant with seven bounded Actions:
 
