@@ -5,7 +5,7 @@ from shimpz import Context, action
 from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecordResult, Page, PerPage, create_http_session
 
 
-@action(integrations=["cloudflare"])
+@action(integrations=["cloudflare"], effect="read_only")
 async def run(zone_id: CloudflareId, page: Page, per_page: PerPage, *, ctx: Context) -> DnsRecordResult:
     async with create_http_session() as session:
         return await CloudflareApiClient(session).list_dns_records(

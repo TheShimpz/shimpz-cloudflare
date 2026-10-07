@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import json
 import re
 import tomllib
 import unittest
 from pathlib import Path
 
+from shimpz._project import AssistantProject
 from shimpz.action import ActionMetadata, get_action_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,6 +91,22 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
                 self.assertLessEqual(integrations, declared_integrations)
                 used_integrations.update(integrations)
         self.assertEqual(used_integrations, declared_integrations)
+
+    def test_machine_contract_declares_reads_read_only_and_writes_mutating(self) -> None:
+        contract = json.loads(AssistantProject.load(ROOT).contract())
+
+        self.assertEqual(
+            {action["id"]: action["effect"] for action in contract["actions"]},
+            {
+                "delete-dns-record": "mutating",
+                "ensure-dns-record": "mutating",
+                "get-dns-record": "read_only",
+                "get-zone": "read_only",
+                "list-dns-records": "read_only",
+                "list-zones": "read_only",
+                "replace-dns-record": "mutating",
+            },
+        )
 
 
 if __name__ == "__main__":
