@@ -22,7 +22,7 @@ Cloudflare endpoint or JSON body.
 Every authorization prompt is English `shimpz.text` catalog copy that Team shows in the person's interface
 language. Zone and record ids and the record type appear as typed parameters, and every record name appears
 exactly as a `dns_name` parameter, including underscore service labels such as `_acme-challenge.example.com` and
-names of up to 253 characters. This version requires SDK 0.7.0 and CLI 0.8.0 or later.
+names of up to 253 characters. This version requires SDK 0.7.1 and CLI 0.8.1 or later.
 
 Each file in `actions/` is one Action. Shared provider code lives in `lib/cloudflare.py`. The Shimpz CLI
 manages Python and the SDK, generates the machine contract in memory, and runs Actions without Docker.
