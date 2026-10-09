@@ -1,16 +1,13 @@
-"""Cloudflare requests must finish before the Controller kills the Action."""
+"""Cloudflare calls must finish before the Controller kills the Action."""
 
 import unittest
 
-from lib.cloudflare import HTTP_TIMEOUT
+from lib.cloudflare import CALL_TIMEOUT_MS
 
 
-class HttpTimeoutTests(unittest.TestCase):
-    def test_http_timeout_finishes_inside_the_action_deadline(self) -> None:
-        self.assertIsNotNone(HTTP_TIMEOUT.total)
-        self.assertLess(HTTP_TIMEOUT.total, 8)
-        self.assertIsNotNone(HTTP_TIMEOUT.sock_read)
-        self.assertLess(HTTP_TIMEOUT.sock_read, HTTP_TIMEOUT.total)
+class CallTimeoutTests(unittest.TestCase):
+    def test_a_call_finishes_inside_the_action_deadline(self) -> None:
+        self.assertLess(CALL_TIMEOUT_MS, 8000)
 
 
 if __name__ == "__main__":

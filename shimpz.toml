@@ -1,7 +1,7 @@
 [shimpz]
 spec = 1
 id = "shimpz-cloudflare"
-version = "0.5.2"
+version = "0.6.0"
 name = "Cloudflare"
 summary = "Set up your domains' DNS without opening a dashboard or memorizing records."
 creators = ["@shimpz"]

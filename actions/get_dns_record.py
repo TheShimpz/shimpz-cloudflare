@@ -2,14 +2,12 @@
 
 from shimpz import Context, action
 
-from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecord, create_http_session
+from lib.cloudflare import CloudflareApiClient, CloudflareId, DnsRecord
 
 
 @action(integrations=["cloudflare"], effect="read_only")
 async def run(zone_id: CloudflareId, record_id: CloudflareId, *, ctx: Context) -> DnsRecord:
-    async with create_http_session() as session:
-        return await CloudflareApiClient(session).get_dns_record(
-            zone_id,
-            record_id,
-            ctx.integrations.cloudflare.access_token,
-        )
+    return await CloudflareApiClient(ctx).get_dns_record(
+        zone_id,
+        record_id,
+    )

@@ -1,4 +1,8 @@
-"""Bounded access to the Cloudflare zones and DNS record APIs."""
+"""Bounded access to the Cloudflare zones and DNS record APIs through calls the Team makes.
+
+The Assistant never holds the Cloudflare access token: the Team adds the connected Integration's bearer to every call
+to ``api.cloudflare.com`` (ADR-0106).
+"""
 
 from __future__ import annotations
 
@@ -6,16 +10,16 @@ import ipaddress
 import json
 import re
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal, TypedDict, get_args
-from urllib.parse import quote
+from typing import Annotated, Any, Literal, Protocol, TypedDict, get_args
+from urllib.parse import quote, urlencode
 
-import aiohttp
-from shimpz import Text, dns_name, identifier, text
+from shimpz import FetchError, Response, Text, dns_name, identifier, text
 
 CLOUDFLARE_API_ORIGIN = "https://api.cloudflare.com"
 MAX_RESPONSE_BYTES = 512 * 1024
 MAX_REQUEST_BYTES = 96 * 1024
-HTTP_TIMEOUT = aiohttp.ClientTimeout(total=6, connect=3, sock_connect=3, sock_read=4)
+# Each call finishes inside the Controller's 8-second Action deadline.
+CALL_TIMEOUT_MS = 6000
 _HEX_ID_PATTERN = "^[0-9a-f]{32}$"
 _STATUS_PATTERN = "^[a-z][a-z0-9_-]{0,31}$"
 _WRITABLE_CONTENT_PATTERN = r"^[ !#-\[\]-~]+$"
@@ -126,23 +130,35 @@ class CloudflareApiError(RuntimeError):
     """Cloudflare did not satisfy the declared Action contract."""
 
 
-class CloudflareApiClient:
-    def __init__(self, session: aiohttp.ClientSession) -> None:
-        self._session = session
+class Fetcher(Protocol):
+    """The one capability the client needs: a provider call the Team makes with the Integration's bearer."""
 
-    async def list_zones(self, page: int, per_page: int, access_token: str) -> ZoneResult:
+    async def fetch(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: Mapping[str, str] = ...,
+        body: str | None = ...,
+        timeout_ms: int | None = ...,
+    ) -> Response: ...
+
+
+class CloudflareApiClient:
+    def __init__(self, fetcher: Fetcher) -> None:
+        self._fetcher = fetcher
+
+    async def list_zones(self, page: int, per_page: int) -> ZoneResult:
         payload = await self._get(
             "/client/v4/zones",
-            access_token,
             {"page": str(page), "per_page": str(per_page), "order": "name", "direction": "asc"},
         )
         zones = [_zone(item) for item in _result(payload, per_page)]
         return {"zones": zones, "pagination": _pagination(payload, page, per_page, len(zones))}
 
-    async def get_zone(self, zone_id: str, access_token: str) -> Zone:
+    async def get_zone(self, zone_id: str) -> Zone:
         payload = await self._get(
             f"/client/v4/zones/{quote(zone_id, safe='')}",
-            access_token,
             {},
         )
         return _zone(_object_result(payload))
@@ -152,20 +168,17 @@ class CloudflareApiClient:
         zone_id: str,
         page: int,
         per_page: int,
-        access_token: str,
     ) -> DnsRecordResult:
         payload = await self._get(
             f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records",
-            access_token,
             {"page": str(page), "per_page": str(per_page), "order": "name", "direction": "asc"},
         )
         records = [_dns_record(item) for item in _result(payload, per_page)]
         return {"records": records, "pagination": _pagination(payload, page, per_page, len(records))}
 
-    async def get_dns_record(self, zone_id: str, record_id: str, access_token: str) -> DnsRecord:
+    async def get_dns_record(self, zone_id: str, record_id: str) -> DnsRecord:
         payload = await self._get(
             f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records/{quote(record_id, safe='')}",
-            access_token,
             {},
         )
         return _dns_record(_object_result(payload))
@@ -178,12 +191,10 @@ class CloudflareApiClient:
         content: str,
         ttl: int,
         proxied: bool,
-        access_token: str,
     ) -> EnsureDnsRecordResult:
         desired = _write_record(record_type, name, content, ttl, proxied)
         payload = await self._get(
             f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records",
-            access_token,
             {
                 "type": desired["type"],
                 "name": desired["name"],
@@ -209,7 +220,6 @@ class CloudflareApiClient:
         created = await self._write(
             "POST",
             f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records",
-            access_token,
             desired,
         )
         record = _dns_record(_object_result(created))
@@ -226,13 +236,11 @@ class CloudflareApiClient:
         content: str,
         ttl: int,
         proxied: bool,
-        access_token: str,
     ) -> DnsRecord:
         desired = _write_record(record_type, name, content, ttl, proxied)
         payload = await self._write(
             "PUT",
             f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records/{quote(record_id, safe='')}",
-            access_token,
             desired,
         )
         record = _dns_record(_object_result(payload))
@@ -244,10 +252,9 @@ class CloudflareApiClient:
         self,
         zone_id: str,
         record_id: str,
-        access_token: str,
     ) -> DeleteDnsRecordResult:
         path = f"/client/v4/zones/{quote(zone_id, safe='')}/dns_records/{quote(record_id, safe='')}"
-        existing = await self._request("GET", path, access_token, {}, absent_ok=True)
+        existing = await self._request("GET", path, {}, absent_ok=True)
         if existing is None:
             return {"record_id": record_id, "deleted": False}
         if existing.get("success") is not True:
@@ -255,13 +262,13 @@ class CloudflareApiClient:
         record = _dns_record(_object_result(existing))
         if record["id"] != record_id:
             raise CloudflareApiError("Cloudflare DNS record result is invalid")
-        deleted = await self._request("DELETE", path, access_token, {})
+        deleted = await self._request("DELETE", path, {})
         if deleted is None or _deleted_id(deleted) != record_id:
             raise CloudflareApiError("Cloudflare DNS deletion result is invalid")
         return {"record_id": record_id, "deleted": True}
 
-    async def _get(self, path: str, access_token: str, params: Mapping[str, str]) -> dict[str, Any]:
-        payload = await self._request("GET", path, access_token, params)
+    async def _get(self, path: str, params: Mapping[str, str]) -> dict[str, Any]:
+        payload = await self._request("GET", path, params)
         if payload is None or payload.get("success") is not True:
             raise CloudflareApiError("Cloudflare response is invalid")
         return payload
@@ -270,13 +277,12 @@ class CloudflareApiClient:
         self,
         method: str,
         path: str,
-        access_token: str,
         body: Mapping[str, object],
     ) -> dict[str, Any]:
-        encoded = json.dumps(body, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
-        if not 1 <= len(encoded) <= MAX_REQUEST_BYTES:
+        encoded = json.dumps(body, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        if not 1 <= len(encoded.encode()) <= MAX_REQUEST_BYTES:
             raise CloudflareApiError("Cloudflare request size is invalid")
-        payload = await self._request(method, path, access_token, {}, body=encoded)
+        payload = await self._request(method, path, {}, body=encoded)
         if payload is None or payload.get("success") is not True:
             raise CloudflareApiError("Cloudflare response is invalid")
         return payload
@@ -285,50 +291,39 @@ class CloudflareApiClient:
         self,
         method: str,
         path: str,
-        access_token: str,
         params: Mapping[str, str],
         *,
-        body: bytes | None = None,
+        body: str | None = None,
         absent_ok: bool = False,
     ) -> dict[str, Any] | None:
         if method not in {"DELETE", "GET", "POST", "PUT"}:
             raise CloudflareApiError("undeclared Cloudflare method")
         if not path.startswith("/client/v4/") or "?" in path or "#" in path:
             raise CloudflareApiError("undeclared Cloudflare endpoint")
-        headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "identity",
-            "Authorization": f"Bearer {access_token}",
-        }
+        headers = {"Accept": "application/json"}
         if body is not None:
             headers["Content-Type"] = "application/json"
+        query = f"?{urlencode(params)}" if params else ""
         try:
-            async with self._session.request(
+            response = await self._fetcher.fetch(
                 method,
-                f"{CLOUDFLARE_API_ORIGIN}{path}",
+                f"{CLOUDFLARE_API_ORIGIN}{path}{query}",
                 headers=headers,
-                params=params,
-                data=body,
-                allow_redirects=False,
-            ) as response:
-                if absent_ok and response.status == 404:
-                    return None
-                if response.status != 200:
-                    raise CloudflareApiError("Cloudflare rejected the request")
-                media_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
-                content_encoding = response.headers.get("Content-Encoding", "").strip()
-                raw_length = response.headers.get("Content-Length")
-                if media_type != "application/json" or content_encoding:
-                    raise CloudflareApiError("Cloudflare response metadata is invalid")
-                if raw_length is not None and (
-                    not raw_length.isascii() or not raw_length.isdigit() or int(raw_length) > MAX_RESPONSE_BYTES
-                ):
-                    raise CloudflareApiError("Cloudflare response size is invalid")
-                raw = await _read_bounded(response.content)
-        except CloudflareApiError:
-            raise
-        except Exception as exc:
+                body=body,
+                timeout_ms=CALL_TIMEOUT_MS,
+            )
+        except FetchError as exc:
+            if exc.code == "credential-missing":
+                raise CloudflareApiError("Cloudflare is not connected for this Team; connect it again") from exc
             raise CloudflareApiError("Cloudflare request failed") from exc
+        if absent_ok and response.status == 404:
+            return None
+        if response.status != 200:
+            raise CloudflareApiError("Cloudflare rejected the request")
+        media_type = (response.header("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if media_type != "application/json":
+            raise CloudflareApiError("Cloudflare response metadata is invalid")
+        raw = response.body
         if not 1 <= len(raw) <= MAX_RESPONSE_BYTES:
             raise CloudflareApiError("Cloudflare response size is invalid")
         try:
@@ -338,28 +333,6 @@ class CloudflareApiClient:
         if not isinstance(payload, dict):
             raise CloudflareApiError("Cloudflare response is invalid")
         return payload
-
-
-def create_http_session() -> aiohttp.ClientSession:
-    session = aiohttp.ClientSession(
-        auto_decompress=False,
-        timeout=HTTP_TIMEOUT,
-        trust_env=True,
-        headers={"User-Agent": "shimpz-cloudflare/0.4.0"},
-    )
-    session._retry_connection = False
-    return session
-
-
-async def _read_bounded(content: Any) -> bytes:
-    raw = bytearray()
-    while True:
-        chunk = await content.read(min(64 * 1024, (MAX_RESPONSE_BYTES + 1) - len(raw)))
-        if not chunk:
-            return bytes(raw)
-        raw.extend(chunk)
-        if len(raw) > MAX_RESPONSE_BYTES:
-            raise CloudflareApiError("Cloudflare response size is invalid")
 
 
 def _result(payload: Mapping[str, Any], maximum: int) -> list[Mapping[str, Any]]:

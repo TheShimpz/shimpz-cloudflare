@@ -10,10 +10,10 @@ Cloudflare Assistant with seven bounded Actions:
 - `replace-dns-record` replaces one exact record with complete reviewed state;
 - `delete-dns-record` deletes one exact record and reconciles an already absent target.
 
-The Assistant receives a short-lived access token only while one of these Actions runs. It never
-receives the OAuth client secret or refresh token. Read Actions require no human gate. Every mutation obtains
-one attributable Shimpz password authorization before it can observe the access token. All requests use
-fixed Cloudflare API paths, reject redirects and automatic connection retries, and bound request and response sizes.
+The Assistant never holds a Cloudflare credential: every call goes through `ctx.fetch`, and Team adds the connected
+Integration's access token as a Bearer header on `api.cloudflare.com` (ADR-0106). Read Actions require no human gate.
+Every mutation obtains one attributable Shimpz password authorization before Team makes any call for it. All
+requests use fixed Cloudflare API paths, reject redirects, and bound request and response sizes.
 
 The OAuth Integration requests only `zone.read`, `dns.read`, `dns.write`, and `offline_access`. Zones remain
 read-only. DNS writes support only the four closed record shapes above; the Assistant accepts no arbitrary
@@ -22,7 +22,7 @@ Cloudflare endpoint or JSON body.
 Every authorization prompt is English `shimpz.text` catalog copy that Team shows in the person's interface
 language. Zone and record ids and the record type appear as typed parameters, and every record name appears
 exactly as a `dns_name` parameter, including underscore service labels such as `_acme-challenge.example.com` and
-names of up to 253 characters. This version requires SDK 0.5.2 and CLI 0.5.64 or later.
+names of up to 253 characters. This version requires SDK 0.7.0 and CLI 0.8.0 or later.
 
 Each file in `actions/` is one Action. Shared provider code lives in `lib/cloudflare.py`. The Shimpz CLI
 manages Python and the SDK, generates the machine contract in memory, and runs Actions without Docker.

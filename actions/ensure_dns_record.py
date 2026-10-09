@@ -10,7 +10,6 @@ from lib.cloudflare import (
     WritableDnsName,
     WritableDnsTtl,
     WritableDnsType,
-    create_http_session,
     ensure_authorization_description,
 )
 
@@ -31,14 +30,11 @@ async def run(
         title=text("Confirm with your Shimpz Supervisor password"),
         description=ensure_authorization_description(zone_id, record_type, name),
     )
-    access_token = ctx.integrations.cloudflare.access_token
-    async with create_http_session() as session:
-        return await CloudflareApiClient(session).ensure_dns_record(
-            zone_id,
-            record_type,
-            name,
-            content,
-            ttl,
-            proxied,
-            access_token,
-        )
+    return await CloudflareApiClient(ctx).ensure_dns_record(
+        zone_id,
+        record_type,
+        name,
+        content,
+        ttl,
+        proxied,
+    )

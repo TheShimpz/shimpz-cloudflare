@@ -10,7 +10,6 @@ from lib.cloudflare import (
     WritableDnsName,
     WritableDnsTtl,
     WritableDnsType,
-    create_http_session,
 )
 
 
@@ -35,15 +34,12 @@ async def run(
             zone_id=identifier(zone_id, max_length=32),
         ),
     )
-    access_token = ctx.integrations.cloudflare.access_token
-    async with create_http_session() as session:
-        return await CloudflareApiClient(session).replace_dns_record(
-            zone_id,
-            record_id,
-            record_type,
-            name,
-            content,
-            ttl,
-            proxied,
-            access_token,
-        )
+    return await CloudflareApiClient(ctx).replace_dns_record(
+        zone_id,
+        record_id,
+        record_type,
+        name,
+        content,
+        ttl,
+        proxied,
+    )

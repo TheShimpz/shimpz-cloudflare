@@ -27,8 +27,7 @@ def _bridge(*arguments: str, payload: object | None = None) -> dict[str, object]
 def _invocation(action_input: dict[str, object]) -> dict[str, object]:
     return {
         "input": action_input,
-        "integrations": {"cloudflare": "unused"},
-        "stored_inputs": {},
+        "stored_inputs": [],
         "files": {},
         "operation_id": OPERATION_ID,
     }

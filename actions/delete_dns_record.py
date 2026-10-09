@@ -2,7 +2,7 @@
 
 from shimpz import Context, action, identifier, text
 
-from lib.cloudflare import CloudflareApiClient, CloudflareId, DeleteDnsRecordResult, create_http_session
+from lib.cloudflare import CloudflareApiClient, CloudflareId, DeleteDnsRecordResult
 
 
 @action(integrations=["cloudflare"], human_requests=["auth:password"])
@@ -17,6 +17,4 @@ async def run(zone_id: CloudflareId, record_id: CloudflareId, *, ctx: Context) -
             zone_id=identifier(zone_id, max_length=32),
         ),
     )
-    access_token = ctx.integrations.cloudflare.access_token
-    async with create_http_session() as session:
-        return await CloudflareApiClient(session).delete_dns_record(zone_id, record_id, access_token)
+    return await CloudflareApiClient(ctx).delete_dns_record(zone_id, record_id)

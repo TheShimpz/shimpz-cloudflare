@@ -21,8 +21,8 @@
 ## Engineering
 
 - Keep every Action bounded, least-privilege, fail-closed, and limited to fixed Cloudflare API paths.
-- Never receive an OAuth client secret or refresh token, choose OAuth endpoints, process callbacks, or persist an
-  access token. Read the invocation-scoped access token only after every human request has completed.
+- Never choose OAuth endpoints or process callbacks. The Assistant holds no Cloudflare credential: make every call
+  with `ctx.fetch`, never set `Authorization`, and finish every human request before the first call.
 - Reject redirects, oversized or malformed provider responses, undeclared fields that widen an operation, and any
   error path that could disclose a credential.
 - Declare every human-request capability exactly. Use input for one missing value, approval for an externally
