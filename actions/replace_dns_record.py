@@ -13,7 +13,7 @@ from lib.cloudflare import (
 )
 
 
-@action(integrations=["cloudflare"], human_requests=["auth:password"])
+@action(description="Replace one DNS record with new values.", integrations=["cloudflare"], human_requests=["auth:password"])
 async def run(
     zone_id: CloudflareId,
     record_id: CloudflareId,

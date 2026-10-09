@@ -14,7 +14,7 @@ from lib.cloudflare import (
 )
 
 
-@action(integrations=["cloudflare"], human_requests=["auth:password"])
+@action(description="Create one DNS record if it does not exist yet.", integrations=["cloudflare"], human_requests=["auth:password"])
 async def run(
     zone_id: CloudflareId,
     record_type: WritableDnsType,

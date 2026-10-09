@@ -4,6 +4,7 @@ id = "shimpz-cloudflare"
 version = "0.6.0"
 name = "Cloudflare"
 summary = "Set up your domains' DNS without opening a dashboard or memorizing records."
+description = "Lists your Cloudflare zones and DNS records, and creates, replaces, or deletes DNS records after you confirm each change with your password."
 creators = ["@shimpz"]
 github = "https://github.com/TheShimpz/shimpz-cloudflare"
 genesis = """

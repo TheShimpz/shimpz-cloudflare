@@ -29,7 +29,7 @@ class StaticAssistantProjectContractTests(unittest.TestCase):
         metadata = manifest["shimpz"]
         self.assertEqual(
             set(metadata),
-            {"spec", "id", "version", "name", "summary", "creators", "github", "genesis"},
+            {"spec", "id", "version", "name", "summary", "description", "creators", "github", "genesis"},
         )
         self.assertEqual(set(manifest["network"]), {"allowed_hosts"})
         self.assertEqual(metadata["spec"], 1)
